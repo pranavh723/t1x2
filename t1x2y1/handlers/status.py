@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from db.models import Room
+from db.models import Room, RoomStatus
 from db.db import SessionLocal
 import logging
 
@@ -13,7 +13,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         db = SessionLocal()
         try:
             # Count active rooms
-            active_rooms = db.query(Room).filter(Room.status != 'finished').count()
+            active_rooms = db.query(Room).filter(Room.status != RoomStatus.FINISHED).count()
             db.commit()
             db_status = "✅ Connected to DB"
         except Exception as e:

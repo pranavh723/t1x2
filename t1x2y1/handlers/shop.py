@@ -5,7 +5,7 @@ from db.db import SessionLocal
 import logging
 from ratelimit import sleep_and_retry, limits
 from functools import wraps
-from game import generate_card
+from handlers.room_management import generate_bingo_card
 
 logger = logging.getLogger(__name__)
 

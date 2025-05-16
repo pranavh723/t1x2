@@ -2,6 +2,24 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from db.models import User
 from db.db import SessionLocal
+from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+import logging
+
+# Set up logger
+start_logger = logging.getLogger(__name__)
+
+def is_user_banned(user_id: int) -> bool:
+    """Check if user is banned"""
+    start_logger.info(f"Checking if user {user_id} is banned")
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        return user and user.banned
+    except Exception as e:
+        start_logger.error(f"Error checking if user {user_id} is banned: {str(e)}")
+        return False
+    finally:
+        db.close()
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command"""
