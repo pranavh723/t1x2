@@ -136,6 +136,23 @@ def create_social_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def create_analytics_keyboard() -> InlineKeyboardMarkup:
+    """Create keyboard for analytics features"""
+    keyboard = [
+        [
+            InlineKeyboardButton("Game Stats", callback_data="analytics_games"),
+            InlineKeyboardButton("Win Rate", callback_data="analytics_win_rate")
+        ],
+        [
+            InlineKeyboardButton("Daily Activity", callback_data="analytics_daily"),
+            InlineKeyboardButton("Leaderboard", callback_data="analytics_leaderboard")
+        ],
+        [
+            InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []
