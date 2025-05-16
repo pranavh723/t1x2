@@ -1,12 +1,21 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
 from config import OWNER_ID
-from utils.ui import create_admin_keyboard
 from db.db import SessionLocal
 from db.models import User, Room, Game, Maintenance
 import logging
 
 logger = logging.getLogger(__name__)
+
+def create_admin_keyboard():
+    """Create admin menu keyboard"""
+    keyboard = [
+        [InlineKeyboardButton("📊 Stats", callback_data="admin_stats")],
+        [InlineKeyboardButton("🔧 Maintenance", callback_data="admin_maintenance")],
+        [InlineKeyboardButton("🔒 Ban User", callback_data="admin_ban")],
+        [InlineKeyboardButton("🔓 Unban User", callback_data="admin_unban")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show admin menu"""
