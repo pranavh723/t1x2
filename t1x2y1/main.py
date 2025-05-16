@@ -48,6 +48,9 @@ except Exception as e:
     if ENV == 'production':
         raise
 
+# Import User model for session usage
+from db.models import User
+
 
 # Create application
 application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -164,11 +167,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
                 chat_id=OWNER_ID,
                 text=f"⚠️ Error in bot:\n\n"
                      f"Error: {str(context.error)}\n"
-                     f"Update: {str(update)}"
+                     f"Update: {str(update)}\n"
+                     f"Traceback: {str(context.error.__traceback__)}"
             )
-            f"Update: {update}\n"
-            f"Traceback: {str(context.error.__traceback__)}"
-        )
     except Exception as e:
         logger.error(f"Failed to send error notification: {str(e)}")
 
