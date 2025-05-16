@@ -16,7 +16,7 @@ from handlers.admin import create_admin_handler, create_admin_callback_handler
 from handlers.leaderboard import show_leaderboard
 from handlers.shop import show_shop
 from handlers.quests import show_quests
-from handlers.cards import show_card_builder
+from handlers.custom_cards import show_card_builder
 from db.db import init_db
 
 # Set up logging
@@ -98,8 +98,12 @@ application.add_handler(create_admin_handler())
 application.add_handler(create_admin_callback_handler())
 
 # Callback query handlers
+# Callback query handlers
 application.add_handler(CallbackQueryHandler(create_room, pattern="^create_room$"))
 application.add_handler(CallbackQueryHandler(join_room, pattern="^join_room$"))
+application.add_handler(create_admin_callback_handler())
+application.add_handler(CallbackQueryHandler(start_game, pattern="^start_game$"))
+application.add_handler(CallbackQueryHandler(ai_play, pattern="^ai_play$"))
 application.add_handler(CallbackQueryHandler(start_game, pattern="^start_game$"))
 application.add_handler(CallbackQueryHandler(ai_play, pattern="^ai_play$"))
 

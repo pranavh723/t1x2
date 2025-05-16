@@ -6,10 +6,11 @@ from db.models import User, Room, Game, Maintenance
 import logging
 from datetime import datetime
 from sqlalchemy import func
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-def create_admin_keyboard():
+async def create_admin_keyboard():
     """Create admin menu keyboard"""
     keyboard = [
         [InlineKeyboardButton("📊 Stats", callback_data="admin_stats")],
@@ -27,14 +28,14 @@ def create_admin_callback_handler():
     """Create callback query handler for admin menu"""
     return CallbackQueryHandler(handle_admin_callback, pattern="^admin_")
 
-def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show admin menu"""
     if update.effective_user.id != OWNER_ID:
-        update.message.reply_text("You are not authorized to use this command.")
+        await update.message.reply_text("You are not authorized to use this command.")
         return
 
-    keyboard = create_admin_keyboard()
-    update.message.reply_text("Admin Menu:", reply_markup=keyboard)
+    keyboard = await create_admin_keyboard()
+    await update.message.reply_text("Admin Menu:", reply_markup=keyboard)
 
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle admin menu callbacks"""
@@ -50,7 +51,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     elif query.data == "admin_unban":
         await unban_user(query)
 
-def toggle_maintenance(query: Update) -> None:
+async def toggle_maintenance(query: Update) -> None:
     """Toggle maintenance mode"""
     with SessionLocal() as db:
         maintenance = db.query(Maintenance).first()
@@ -61,11 +62,11 @@ def toggle_maintenance(query: Update) -> None:
         db.commit()
 
     if maintenance.enabled:
-        query.message.reply_text("Maintenance mode enabled.")
+        await query.message.reply_text("Maintenance mode enabled.")
     else:
-        query.message.reply_text("Maintenance mode disabled.")
+        await query.message.reply_text("Maintenance mode disabled.")
 
-def show_stats(query: Update) -> None:
+async def show_stats(query: Update) -> None:
     """Show bot statistics"""
     with SessionLocal() as db:
         user_count = db.query(User).count()
@@ -78,15 +79,15 @@ Users: {user_count}
 Rooms: {room_count}
 Games: {game_count}
 """
-    query.message.reply_text(stats)
+    await query.message.reply_text(stats)
 
-def ban_user(query: Update) -> None:
+async def ban_user(query: Update) -> None:
     """Ban a user"""
-    query.message.reply_text("Please provide the user ID to ban.")
+    await query.message.reply_text("Please provide the user ID to ban.")
 
-def unban_user(query: Update) -> None:
+async def unban_user(query: Update) -> None:
     """Unban a user"""
-    query.message.reply_text("Please provide the user ID to unban.")
+    await query.message.reply_text("Please provide the user ID to unban.")
 
 async def show_bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show detailed bot statistics"""
