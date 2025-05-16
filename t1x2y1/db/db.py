@@ -1,19 +1,8 @@
-import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
 import os
-
-# Set up logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-# Load environment variables
-load_dotenv()
 
 # Load environment variables
 load_dotenv()
@@ -42,13 +31,6 @@ def init_db():
         Base.metadata.create_all(bind=engine)
     except Exception as e:
         raise e
-
-def get_db():
-    """Get database session"""
-    try:
-        db = SessionLocal()
-        yield db
-    except Exception as e:
         logger.error(f"Database connection error: {str(e)}")
         raise
     finally:

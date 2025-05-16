@@ -1,11 +1,29 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from utils.ui import create_main_menu_keyboard
+from db.models import User
+from db.db import SessionLocal
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command"""
     user = update.effective_user
     
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Check if user exists, if not create new user
+        db_user = db.query(User).filter(User.telegram_id == user.id).first()
+        if not db_user:
+            new_user = User(
+                telegram_id=user.id,
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name
+            )
+            db.add(new_user)
+            db.commit()
+    finally:
+        db.close()
+
     # Create main menu keyboard
     keyboard = create_main_menu_keyboard()
     
