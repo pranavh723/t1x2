@@ -12,12 +12,6 @@ from handlers.events import show_events
 from handlers.analytics import show_analytics
 from handlers.admin import create_admin_handler, create_admin_callback_handler
 from db.db import init_db
-import logging
-
-# Set up logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
