@@ -19,6 +19,14 @@ def create_admin_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def create_admin_handler():
+    """Create admin command handlers"""
+    return CommandHandler("admin", admin_menu)
+
+def create_admin_callback_handler():
+    """Create callback query handler for admin menu"""
+    return CallbackQueryHandler(handle_admin_callback, pattern="^admin_")
+
 def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show admin menu"""
     if update.effective_user.id != OWNER_ID:
