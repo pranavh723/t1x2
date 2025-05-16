@@ -29,6 +29,7 @@ GameStatusEnum = SQLAlchemyEnum(GameStatus)
 
 class Card(Base):
     __tablename__ = 'cards'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))
@@ -101,28 +102,3 @@ class User(Base):
     rooms = relationship("Room", back_populates="owner")
     games = relationship("Game", back_populates="players")
     cards = relationship("Card", back_populates="user")
-
-# Remove any duplicate class definitions
-# Only keep one version of each class
-# The above User class is the complete definition with extend_existing=True
-# No other class definitions should be present in this file
-
-# The User class is already defined above with extend_existing=True
-# No need to define it again
-
-# Other classes:
-class Card(Base):
-    __tablename__ = 'cards'
-    __table_args__ = {'extend_existing': True}
-    
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    card_data = Column(JSON)
-    is_custom = Column(Boolean, default=False)
-    active_game_id = Column(Integer, ForeignKey('games.id'))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    user = relationship("User", back_populates="cards")
-    game = relationship("Game", back_populates="cards")
-
-

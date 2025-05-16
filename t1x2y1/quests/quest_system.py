@@ -111,7 +111,7 @@ class QuestSystem:
             user.items['quests'] = quests
             db.commit()
     
-    def _award_quest_rewards(self, user_id: int, quest_type: str, quest_type: str) -> None:
+    def _award_quest_rewards(self, user_id: int, quest_type: str, quest_period: str) -> None:
         """Award rewards for completed quest"""
         quest = self.daily_quests[quest_type] if quest_type == 'daily' else self.weekly_quests[quest_type]
         
