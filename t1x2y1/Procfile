@@ -1,1 +1,1 @@
-web: ENV=production python t1x2y1/run.py
+web: ENV=production PORT=$PORT python t1x2y1/run.py

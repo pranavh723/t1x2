@@ -26,6 +26,7 @@ from t1x2y1.utils.game_utils import generate_bingo_card, format_bingo_card, crea
 from ratelimit import sleep_and_retry, limits
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import inspect
 from t1x2y1.utils.user_utils import is_user_banned
 from t1x2y1.utils.maintenance_utils import maintenance_check
 
@@ -55,9 +56,30 @@ if not TELEGRAM_BOT_TOKEN:
 
 # Initialize database - create all tables first
 try:
+    # Import all models to ensure they're registered with Base
+    from t1x2y1.db.models import User, Room, Game, Card, Maintenance, Player
+    
     # Explicitly create all tables before attempting any queries
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created successfully")
+    
+    # Verify tables were created
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    logger.info(f"Tables in database: {tables}")
+    
+    if 'maintenance' not in tables or 'users' not in tables:
+        logger.error(f"Critical tables missing after creation: {tables}")
+        # Force create specific tables
+        if 'maintenance' not in tables:
+            Maintenance.__table__.create(bind=engine)
+        if 'users' not in tables:
+            User.__table__.create(bind=engine)
+        if 'rooms' not in tables:
+            Room.__table__.create(bind=engine)
+        if 'players' not in tables:
+            Player.__table__.create(bind=engine)
+        logger.info("Forced creation of critical tables")
 except Exception as e:
     logger.error(f"Error creating database tables: {str(e)}")
     raise
