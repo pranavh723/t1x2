@@ -30,6 +30,24 @@ def create_leaderboard_keyboard(page=1):
     ]
     return InlineKeyboardMarkup(keyboard)
 
+# Shop keyboard layout
+def create_shop_keyboard():
+    """Create shop keyboard"""
+    keyboard = [
+        [
+            InlineKeyboardButton("Buy Coins", callback_data="buy_coins"),
+            InlineKeyboardButton("Buy XP", callback_data="buy_xp")
+        ],
+        [
+            InlineKeyboardButton("Buy Items", callback_data="buy_items"),
+            InlineKeyboardButton("Buy Cards", callback_data="buy_cards")
+        ],
+        [
+            InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []

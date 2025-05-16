@@ -100,4 +100,26 @@ class User(Base):
     games = relationship("Game", back_populates="players")
     cards = relationship("Card", back_populates="user")
 
+    id = Column(Integer, primary_key=True, index=True)
+    telegram_id = Column(BigInteger, unique=True, index=True)
+    username = Column(String)
+    first_name = Column(String)
+    last_name = Column(String)
+    xp = Column(Integer, default=0)
+    coins = Column(Integer, default=0)
+    streak = Column(Integer, default=0)
+    items = Column(JSON, default=dict)
+    achievements = Column(JSON, default=dict)
+    quests = Column(JSON, default=dict)
+    inventory = Column(JSON, default=dict)
+    cards = Column(JSON, default=list)
+    banned = Column(Boolean, default=False)
+    ban_reason = Column(String, nullable=True)
+    last_seen = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    rooms = relationship("Room", back_populates="owner")
+    games = relationship("Game", back_populates="players")
+    cards = relationship("Card", back_populates="user")
+
 
