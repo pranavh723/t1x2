@@ -17,7 +17,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Now import from the project modules
-from t1x2y1.config import OWNER_ID, ENV, TELEGRAM_BOT_TOKEN, DATABASE_URL
+from config import OWNER_ID, ENV, TELEGRAM_BOT_TOKEN, DATABASE_URL
 from t1x2y1.utils.rate_limit import rate_limited
 from t1x2y1.db.database import engine, SessionLocal, Base
 from t1x2y1.db.models import User, Room, Game, Card, Maintenance, Player
