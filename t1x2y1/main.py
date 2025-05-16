@@ -1,9 +1,9 @@
 import os
 
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from config import OWNER_ID, TELEGRAM_BOT_TOKEN, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 from utils.rate_limit import rate_limited
 
 from handlers.start import start_handler
@@ -17,8 +17,10 @@ from handlers.leaderboard import show_leaderboard
 from handlers.shop import show_shop
 from handlers.quests import show_quests
 from handlers.custom_cards import show_card_builder
-from utils.rate_limit import rate_limited
-from db.db import init_db
+from db.db import init_db, SessionLocal, Base
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, scoped_session
+from sqlalchemy.orm.session import sessionmaker
 
 # Set up logging
 logging.basicConfig(
@@ -47,9 +49,6 @@ OWNER_ID = int(os.getenv('ADMIN_ID', '6985505204'))
 MAINTENANCE_MODE = False
 MAINTENANCE_MESSAGE = "The bot is currently in maintenance mode. Please try again later."
 
-# Load environment variables
-
-
 # Get environment
 ENV = os.getenv('ENV', 'development').lower()
 
@@ -67,13 +66,22 @@ if ENV == 'production':
 else:
     DATABASE_URL = 'sqlite:///bingo_bot.db'
 
+# Create engine
+engine = create_engine(DATABASE_URL)
+
+# Create session maker
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create base
+Base = declarative_base()
+
 # Log environment and database settings
 logger.info(f"Starting in {ENV} environment")
 logger.info(f"Using database: {DATABASE_URL}")
 
 # Initialize database
 try:
-    init_db()
+    Base.metadata.create_all(bind=engine)
     logger.info("Database initialized successfully")
 except Exception as e:
     logger.error(f"Database initialization error: {str(e)}")
