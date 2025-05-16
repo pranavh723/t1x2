@@ -1,6 +1,12 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 
+# Game keyboard layout
+def create_game_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Join Game", callback_data="join_game")]
+    ])
+
 async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Create a new game room"""
     keyboard = [
