@@ -92,11 +92,28 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         game = Game(
             room_id=room.id,
             room_code=room.room_code,
-            players=room.players,
             status=GameStatus.IN_PROGRESS,
             start_time=datetime.utcnow()
         )
         db.add(game)
+        
+        # Generate cards for each player
+        for player_id in room.players:
+            card = generate_card()
+            card_data = {
+                'numbers': card,
+                'marked': [False] * 25
+            }
+            
+            new_card = Card(
+                user_id=player_id,
+                card_data=card_data,
+                is_custom=False,
+                active_game_id=game.id
+            )
+            db.add(new_card)
+            game.cards.append(new_card)
+            
         room.status = RoomStatus.STARTED
         db.commit()
         
@@ -104,10 +121,25 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await query.edit_message_text(
             "Game is starting!\n"
             "Good luck!\n"
-            f"Players: {len(game.players)}"
+            f"Players: {len(room.players)}\n"
+            "Waiting for first number..."
         )
     finally:
         db.close()
+
+async def generate_card() -> list:
+    """Generate a random bingo card"""
+    numbers = []
+    for i in range(5):
+        # Generate numbers for each column
+        start = i * 15 + 1
+        end = (i + 1) * 15
+        column = random.sample(range(start, end + 1), 5)
+        numbers.extend(column)
+    
+    # Shuffle the numbers
+    random.shuffle(numbers)
+    return numbers
 
 async def ai_play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle AI moves in the game"""
@@ -126,12 +158,63 @@ async def ai_play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await query.answer("Game is not in progress!", show_alert=True)
             return
             
-        # Generate AI move
-        # TODO: Implement actual AI logic here
+        # Draw a new number
+        all_numbers = list(range(1, 76))
+        available_numbers = [num for num in all_numbers if num not in game.numbers_drawn]
+        
+        if not available_numbers:
+            await query.answer()
+            await query.edit_message_text("All numbers have been drawn!")
+            return
+            
+        new_number = random.choice(available_numbers)
+        game.numbers_drawn.append(new_number)
+        
+        # Check for bingo
+        winner = await check_for_bingo(game, db)
+        if winner:
+            game.status = GameStatus.COMPLETED
+            game.winner_id = winner
+            game.end_time = datetime.utcnow()
+            db.commit()
+            
+            await query.answer()
+            await query.edit_message_text(
+                f"BINGO! Player {winner} wins!\n"
+                f"Winning number: {new_number}"
+            )
+            return
+            
         await query.answer()
         await query.edit_message_text(
-            "AI is making its move...\n"
+            f"Number drawn: {new_number}\n"
             "Waiting for next move..."
         )
     finally:
         db.close()
+
+async def check_for_bingo(game: Game, db: SessionLocal) -> Optional[int]:
+    """Check if any player has bingo"""
+    for card in game.cards:
+        numbers = card.card_data['numbers']
+        marked = card.card_data['marked']
+        
+        # Check rows
+        for i in range(5):
+            row = marked[i*5:(i+1)*5]
+            if all(row):
+                return card.user_id
+                
+        # Check columns
+        for i in range(5):
+            column = [marked[i + j*5] for j in range(5)]
+            if all(column):
+                return card.user_id
+                
+        # Check diagonals
+        diagonal1 = [marked[i*6] for i in range(5)]
+        diagonal2 = [marked[i*4] for i in range(4, -1, -1)]
+        if all(diagonal1) or all(diagonal2):
+            return card.user_id
+            
+    return None

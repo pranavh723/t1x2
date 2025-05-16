@@ -75,6 +75,13 @@ class Room(Base):
     
     owner = relationship("User", back_populates="rooms")
     games = relationship("Game", back_populates="room")
+    players = relationship("User", secondary="room_players", back_populates="rooms")
+    
+    # Association table for room players
+    room_players = Table('room_players', Base.metadata,
+        Column('room_id', Integer, ForeignKey('rooms.id')),
+        Column('user_id', Integer, ForeignKey('users.id'))
+    )
 
 # Game model
 class Game(Base):
@@ -84,17 +91,21 @@ class Game(Base):
     id = Column(Integer, primary_key=True)
     room_id = Column(Integer, ForeignKey('rooms.id'))
     room_code = Column(String)
-    players = Column(JSON)
-    cards = Column(JSON)
-    marked = Column(JSON)
-    numbers_drawn = Column(JSON, default=list)
-    winner_id = Column(Integer)
+    winner_id = Column(Integer, ForeignKey('users.id'))
     status = Column(GameStatusEnum, default=GameStatus.PENDING)
     start_time = Column(DateTime, default=datetime.utcnow)
     end_time = Column(DateTime)
     
     room = relationship("Room", back_populates="games")
+    players = relationship("User", secondary="game_players", back_populates="games")
     cards = relationship("Card", back_populates="game")
+    numbers_drawn = Column(JSON, default=list)
+    
+    # Association table for game players
+    game_players = Table('game_players', Base.metadata,
+        Column('game_id', Integer, ForeignKey('games.id')),
+        Column('user_id', Integer, ForeignKey('users.id'))
+    )
 
 # Card model
 class Card(Base):

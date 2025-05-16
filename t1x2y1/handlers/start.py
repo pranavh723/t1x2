@@ -54,7 +54,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 def create_main_menu_keyboard():
     keyboard = [
         [
-            InlineKeyboardButton("🎮 Start Game", callback_data="start_game"),
+            InlineKeyboardButton("🎮 Start Game", callback_data="create_room"),
             InlineKeyboardButton("🏆 Leaderboard", callback_data="leaderboard")
         ],
         [
