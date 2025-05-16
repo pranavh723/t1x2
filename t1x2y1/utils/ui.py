@@ -67,6 +67,20 @@ def create_quests_keyboard(quests: list) -> InlineKeyboardMarkup:
     
     return InlineKeyboardMarkup(keyboard)
 
+def create_card_builder_keyboard() -> InlineKeyboardMarkup:
+    """Create keyboard for custom card builder"""
+    keyboard = [
+        [
+            InlineKeyboardButton("Add Number", callback_data="add_number"),
+            InlineKeyboardButton("Remove Number", callback_data="remove_number")
+        ],
+        [
+            InlineKeyboardButton("Save Card", callback_data="save_card"),
+            InlineKeyboardButton("Cancel", callback_data="cancel_builder")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []
