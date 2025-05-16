@@ -2,7 +2,7 @@ import os
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, RATE_LIMITS
 
 from handlers.start import start_handler
 from handlers.game import create_room, join_room, start_game
