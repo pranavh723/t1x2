@@ -214,12 +214,6 @@ async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         logger.error(f"Error in validate_command: {str(e)}", exc_info=True)
         await update.message.reply_text("❌ An error occurred. Please try again later.")
         return False
-        
-    return True
-        update.message.reply_text("You are banned from using this bot.")
-        return False
-        
-    return True
 
 application.add_error_handler(error_handler)
 
