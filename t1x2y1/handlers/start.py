@@ -12,6 +12,7 @@ start_logger = logging.getLogger(__name__)
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command"""
     try:
+        start_logger.info(f"Start command received from user {update.effective_user.id}")
         user = update.effective_user
         
         # Check maintenance mode
@@ -47,11 +48,17 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Create main menu keyboard
         keyboard = create_main_menu_keyboard()
         
-        # Add support and source links
+        # Add support, source links, and add to group button
         support_keyboard = [
             [
                 InlineKeyboardButton("Support", url="https://t.me/bingobot_support"),
                 InlineKeyboardButton("Source", url="https://t.me/Bot_SOURCEC")
+            ],
+            [
+                InlineKeyboardButton(
+                    "➕ Add to Group", 
+                    url=f"https://t.me/BINGOOGAME_BOT?startgroup=true"
+                )
             ]
         ]
         support_markup = InlineKeyboardMarkup(support_keyboard)
@@ -88,6 +95,9 @@ def create_main_menu_keyboard():
             [
                 InlineKeyboardButton("ℹ️ Support", callback_data="support"),
                 InlineKeyboardButton("🔔 Updates", callback_data="updates")
+            ],
+            [
+                InlineKeyboardButton("➕ Add to Group", url="https://t.me/BINGOOGAME_BOT?startgroup=true")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)

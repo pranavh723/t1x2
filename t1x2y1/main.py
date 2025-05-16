@@ -107,65 +107,63 @@ class RateLimitExceeded(Exception):
     """Raised when a rate limit is exceeded"""
     pass
 
-# Add command handlers with rate limiting and validation
-for cmd, handler in command_handlers.items():
-    limit = RATE_LIMITS.get(cmd, RATE_LIMITS['default'])
-    
-    async def create_wrapper(cmd=cmd, handler=handler):
-        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            try:
-                if await validate_command(update, context):
-                    return await handler(update, context)
-            except RateLimitExceeded:
-                logger.warning(f"Rate limit exceeded for command {cmd} from user {update.effective_user.id}")
-                await update.message.reply_text("⏳ Please wait a moment before trying again.")
-            except Exception as e:
-                logger.error(f"Error handling command {cmd}: {str(e)}", exc_info=True)
-                await update.message.reply_text("❌ An error occurred. Please try again later.")
-        return wrapper
-    
-    application.add_handler(CommandHandler(cmd, rate_limited(*limit)(create_wrapper())))
+# Add command handlers directly for simplicity
+logger.info("Registering command handlers...")
+
+# Register the start handler directly
+application.add_handler(CommandHandler("start", start_handler))
+logger.info("Registered /start command handler")
+
+# Register other command handlers
+application.add_handler(CommandHandler("leaderboard", show_leaderboard))
+application.add_handler(CommandHandler("shop", show_shop))
+application.add_handler(CommandHandler("create_room", create_room))
+application.add_handler(CommandHandler("join_room", join_room))
+application.add_handler(CommandHandler("start_game", start_game))
+application.add_handler(CommandHandler("ai_play", ai_play))
+application.add_handler(CommandHandler("status", status_handler))
+logger.info("All command handlers registered successfully")
 
 # Add admin handlers
 application.add_handler(create_admin_handler())
 application.add_handler(create_admin_callback_handler())
 
-# Add callback query handlers with validation
-callback_handlers = {
-    'create_room': create_room,
-    'join_room': join_room,
-    'start_game': start_game,
-    'ai_play': ai_play
-}
+# Add callback query handlers directly
+logger.info("Registering callback query handlers...")
 
-async def validate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Validate callback query permissions"""
-    try:
-        if not update.callback_query:
-            return False
-            
-        if maintenance_check(update, context):
-            return False
-            
-        if is_user_banned(update.callback_query.from_user.id):
-            await update.callback_query.answer("❌ You are banned from using this bot.", show_alert=True)
-            return False
-            
-        return True
-    except Exception as e:
-        logger.error(f"Error in validate_callback: {str(e)}")
-        await update.callback_query.answer("❌ An error occurred. Please try again later.", show_alert=True)
-        return False
+# Register callback handlers for specific patterns
+application.add_handler(CallbackQueryHandler(create_room, pattern='^create_room'))
+application.add_handler(CallbackQueryHandler(join_room, pattern='^join_room'))
+application.add_handler(CallbackQueryHandler(start_game, pattern='^start_game'))
+application.add_handler(CallbackQueryHandler(ai_play, pattern='^ai_play'))
 
-# Add callback query handlers with validation
-for action, handler in callback_handlers.items():
-    async def create_callback_wrapper(action=action, handler=handler):
-        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            if await validate_callback(update, context):
-                return await handler(update, context)
-        return wrapper
+# Add a general callback handler for other buttons
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle button presses that don't match other patterns"""
+    query = update.callback_query
+    await query.answer()
     
-    application.add_handler(CallbackQueryHandler(create_callback_wrapper(), pattern=f"^{action}_"))
+    # Log the callback data
+    logger.info(f"Button pressed: {query.data} by user {query.from_user.id}")
+    
+    if query.data == 'leaderboard':
+        await show_leaderboard(update, context)
+    elif query.data == 'shop':
+        await show_shop(update, context)
+    elif query.data == 'support':
+        await query.message.reply_text(
+            "Need help? Contact our support: https://t.me/bingobot_support"
+        )
+    elif query.data == 'updates':
+        await query.message.reply_text(
+            "Stay updated with our latest news: https://t.me/Bot_SOURCEC"
+        )
+    else:
+        await query.message.reply_text(f"Button {query.data} pressed but no handler found.")
+
+# Add the general button handler for any other callback patterns
+application.add_handler(CallbackQueryHandler(button_handler))
+logger.info("All callback handlers registered successfully")
 
 # Add error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:

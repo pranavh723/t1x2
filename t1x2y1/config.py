@@ -8,7 +8,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Hardcoded configuration values
-TELEGRAM_BOT_TOKEN = "7662693814:AAHZ7i7YKwpWvmpAWceo1e05pilDcYbpXEE"
+TELEGRAM_BOT_TOKEN = "7662693814:AAH48vJMmVqzyP0v3OmmwzqTyaMloNHFAec"
 OWNER_ID = 6985505204
 ADMIN_ID = 6985505204
 ENV = "production"
