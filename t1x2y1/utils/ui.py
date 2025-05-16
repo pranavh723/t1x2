@@ -119,6 +119,23 @@ def create_achievements_keyboard(achievements: list) -> InlineKeyboardMarkup:
     
     return InlineKeyboardMarkup(keyboard)
 
+def create_social_keyboard() -> InlineKeyboardMarkup:
+    """Create keyboard for social features"""
+    keyboard = [
+        [
+            InlineKeyboardButton("Friends", callback_data="social_friends"),
+            InlineKeyboardButton("Leaderboard", callback_data="social_leaderboard")
+        ],
+        [
+            InlineKeyboardButton("Invite Friends", callback_data="social_invite"),
+            InlineKeyboardButton("Chat", callback_data="social_chat")
+        ],
+        [
+            InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []
