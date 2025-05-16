@@ -10,15 +10,18 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# Import with fallback paths for both local development and deployment
-from t1x2y1.db.models import User
-from t1x2y1.db.database import SessionLocal
-from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-from t1x2y1.utils.user_utils import is_user_banned
-        print("Error: Could not import required modules")
-
-# Set up logger
+# Set up logger first
 start_logger = logging.getLogger(__name__)
+
+# Import with fallback paths for both local development and deployment
+try:
+    from t1x2y1.db.models import User
+    from t1x2y1.db.database import SessionLocal
+    from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+    from t1x2y1.utils.user_utils import is_user_banned
+except ImportError as e:
+    start_logger.error(f"Import error: {str(e)}")
+    raise
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command - Main entry point for the bot"""

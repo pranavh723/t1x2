@@ -44,7 +44,7 @@ This bot is configured for easy deployment on Render.com.
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `python main.py`
 5. Add the following environment variables:
-   - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from BotFather (7662693814:AAH48vJMmVqzyP0v3OmmwzqTyaMloNHFAec)
+   - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from BotFather
    - `OWNER_ID`: Your Telegram user ID
    - `DATABASE_URL`: Database connection string (SQLite by default)
    - `ENV`: Set to `production`
@@ -58,7 +58,7 @@ The bot uses the following environment variables:
 - `DATABASE_URL`: Database connection string
 - `ENV`: Environment (`development` or `production`)
 - `MAINTENANCE_MODE`: Set to `true` to enable maintenance mode
-     - `OWNER_ID`: 69855055204
+     - `OWNER_ID`: Your Telegram user ID
      - `ENV`: production
 
 4. Database Setup:
