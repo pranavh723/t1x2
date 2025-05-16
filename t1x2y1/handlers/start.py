@@ -24,17 +24,19 @@ except ImportError as e:
     raise
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command - Main entry point for the bot"""
+    """Handle /start command in DMs"""
     try:
-        start_logger.info(f"Start command received from user {update.effective_user.id}")
+        if update.effective_chat.type != "private":
+            start_logger.info(f"Ignoring start command in non-DM chat: {update.effective_chat.id}")
+            return
+            
+        user = update.effective_user
+        start_logger.info(f"Processing DM start from user {user.id}")
         
         if not update.message:
             start_logger.error("No message in update object")
             return
             
-        user = update.effective_user
-        start_logger.info(f"Processing user: {user.id} - {user.username}")
-        
         # Create database session
         try:
             db = SessionLocal()

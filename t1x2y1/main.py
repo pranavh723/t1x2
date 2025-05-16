@@ -6,7 +6,7 @@ import string
 from datetime import datetime
 from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters
 from telegram.error import BadRequest, TimedOut, NetworkError
 from dotenv import load_dotenv
 
@@ -130,8 +130,17 @@ finally:
 # All models and utilities have been imported above
 
 
-# Create application
-application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+# Create the Application
+application = (
+    Application.builder()
+    .token(TELEGRAM_BOT_TOKEN)
+    .read_timeout(30)
+    .write_timeout(30)
+    .connect_timeout(30)
+    .pool_timeout(30)
+    .get_updates_connection_pool_size(10)
+    .build()
+)
 
 # Add command handlers with rate limiting and validation
 command_handlers = {
@@ -186,8 +195,8 @@ class RateLimitExceeded(Exception):
 logger.info("Registering command handlers...")
 
 # Add essential command handlers directly
-application.add_handler(CommandHandler("start", start_handler))
-application.add_handler(CommandHandler("help", start_handler)) # Replaced help_handler with start_handler
+application.add_handler(CommandHandler("start", start_handler, filters=filters.ChatType.PRIVATE))
+application.add_handler(CommandHandler("help", start_handler, filters=filters.ChatType.PRIVATE)) # Replaced help_handler with start_handler
 
 # Implement fully functional command handlers
 
