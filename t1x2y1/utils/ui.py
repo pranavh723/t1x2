@@ -81,6 +81,25 @@ def create_card_builder_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def create_events_keyboard(events: list) -> InlineKeyboardMarkup:
+    """Create keyboard for events"""
+    keyboard = []
+    
+    # Add events
+    for event in events:
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{event['name']} - {event['status']}",
+                callback_data=f"event_{event['id']}")
+        ])
+    
+    # Add back button
+    keyboard.append([
+        InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+    ])
+    
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []
