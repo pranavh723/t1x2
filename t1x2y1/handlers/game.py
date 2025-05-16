@@ -8,16 +8,17 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 
-from db.models import Room, Game, User, RoomStatus
+from db.models import Room, Game, User, RoomStatus, GameStatus
 from db.db import SessionLocal
 from utils.constants import ROOM_SIZE_LIMIT, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, EMOJIS, MAX_ROOMS_PER_USER, MAX_ROOMS_PER_CHAT
 from handlers.start import is_user_banned
-from handlers.room import room_management
+from handlers.room_management import create_room as create_room_func, join_room as join_room_func, generate_bingo_card, validate_bingo_card, create_card_keyboard
 from utils.error_handler import error_handler
 from utils.exceptions import (
     InvalidUserError, InvalidChatTypeError, MaintenanceModeError, BannedUserError, 
     RoomNotFoundError, RateLimitExceeded, AlreadyJoinedError, RoomLimitExceededError, 
-    RoomCreationError
+    RoomCreationError, GameLimitExceededError, InvalidGameState, InvalidRoomState, 
+    InvalidUserState, CardGenerationError, InvalidCardError
 )
 from ratelimit import sleep_and_retry, limits
 from functools import wraps
@@ -88,7 +89,7 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             db.close()
             
         # Create room
-        room = room_management.create_room(
+        room = create_room_func(
             host_id=user_id,
             chat_id=chat_id,
             is_private=False,
@@ -209,7 +210,7 @@ async def join_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             db.close()
             
         # Join room
-        room = room_management.join_room(room_code, user_id)
+        room = join_room_func(room_code, user_id)
         if not room:
             game_logger.error(f"Failed to join room {room_code} for user {user_id}")
             raise RoomNotFoundError(f"Room {room_code} not found")
@@ -241,7 +242,7 @@ async def join_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         
         # Send private message with card
-        card = room_management.generate_bingo_card()
+        card = generate_bingo_card()
         if not card:
             game_logger.error(f"Failed to generate card for user {user_id}")
             raise CardGenerationError("Failed to generate bingo card")

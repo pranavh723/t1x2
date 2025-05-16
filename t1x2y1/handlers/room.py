@@ -5,7 +5,8 @@ from datetime import datetime
 import random
 import string
 
-from models import Room, Game, User
+from db.models import Room, Game, User, RoomStatus
+from db.db import SessionLocal
 from utils.constants import ROOM_SIZE_LIMIT
 
 def generate_room_code() -> str:

@@ -42,6 +42,25 @@ class RoomStatus(Enum):
     IN_PROGRESS = "in_progress"
     FINISHED = "finished"
 
+# Maintenance Mode
+MAINTENANCE_MODE = False
+MAINTENANCE_MESSAGE = "The bot is currently in maintenance mode. Please try again later."
+
+# Emojis
+EMOJIS = {
+    'success': "✅",
+    'error': "❌",
+    'warning': "⚠️",
+    'info': "ℹ️",
+    'dice': "🎲",
+    'game': "🎮",
+    'star': "⭐",
+    'trophy': "🏆",
+    'money': "💰",
+    'clock': "⏰",
+    'wait': "⏳"
+}
+
 # Error Messages
 ERROR_MESSAGES = {
     'generic': "An error occurred. Please try again later.",
