@@ -7,16 +7,21 @@ and starts a web server to keep the service alive on Render
 import os
 import sys
 import logging
-import importlib
+
+# Add project root to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.insert(0, project_root)
+
+# Now import project modules
+from t1x2y1.config import TELEGRAM_BOT_TOKEN, DATABASE_URL
+from t1x2y1.main import main
+from t1x2y1.web_server import start_web_server
+from t1x2y1.db.database import init_db, get_db
 import threading
 import time
-from t1x2y1.config import TELEGRAM_BOT_TOKEN, DATABASE_URL
+import importlib
 
-# Configure logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
 def main():
@@ -26,23 +31,8 @@ def main():
         logger.info(f"Using token: {TELEGRAM_BOT_TOKEN}")
         logger.info(f"Database URL: {DATABASE_URL}")
         
-        # Add the project root to the Python path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        if current_dir not in sys.path:
-            sys.path.append(current_dir)
-        if project_root not in sys.path:
-            sys.path.append(project_root)
-        
         # Start the web server first (required for Render)
         try:
-            # Try different import paths
-            try:
-                from t1x2y1.web_server import start_web_server
-            except ImportError:
-                logger.error("Could not import web_server module")
-                raise
-            
             # Start the web server
             httpd = start_web_server()
             logger.info("Web server started successfully")
@@ -52,7 +42,6 @@ def main():
         
         # Initialize the database
         try:
-            from t1x2y1.db.database import init_db, get_db
             logger.info("Initializing database...")
             
             # Initialize tables
@@ -74,17 +63,8 @@ def main():
         # Now import and run the main module in a separate thread
         def run_bot():
             try:
-                try:
-                    import t1x2y1.main
-                    logger.info("Bot started successfully")
-                    logger.info("Listening for updates...")
-                except ImportError:
-                    try:
-                        import main
-                        logger.info("Bot started successfully")
-                    except ImportError:
-                        logger.error("Could not import main module")
-                        raise
+                logger.info("Bot started successfully")
+                logger.info("Listening for updates...")
             except Exception as e:
                 logger.error(f"Error starting bot: {str(e)}")
         
@@ -104,4 +84,13 @@ def main():
         return 1
 
 if __name__ == "__main__":
-    sys.exit(main())
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    try:
+        logger.info("Starting application...")
+        main()
+    except Exception as e:
+        logger.error(f"Application failed: {e}", exc_info=True)

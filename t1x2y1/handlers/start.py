@@ -24,17 +24,24 @@ except ImportError as e:
     raise
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command in DMs"""
+    """Handle /start command with response verification"""
     try:
-        if update.effective_chat.type != "private":
-            start_logger.info(f"Ignoring start command in non-DM chat: {update.effective_chat.id}")
+        if not update.message:
+            start_logger.error("No message in update object")
             return
             
         user = update.effective_user
-        start_logger.info(f"Processing DM start from user {user.id}")
+        start_logger.info(f"Processing start from user {user.id}")
         
-        if not update.message:
-            start_logger.error("No message in update object")
+        # Test response capability
+        try:
+            await update.message.reply_text(" Bot is initializing...")
+        except Exception as e:
+            start_logger.error(f"Failed to send test message: {e}")
+            return
+            
+        if update.effective_chat.type != "private":
+            start_logger.info(f"Ignoring start command in non-DM chat: {update.effective_chat.id}")
             return
             
         # Create database session
@@ -44,7 +51,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             start_logger.info("Database connection successful")
         except Exception as e:
             start_logger.error(f"Database connection failed: {str(e)}")
-            await update.message.reply_text("❌ Database error. Please try again later.")
+            await update.message.reply_text(" Database error. Please try again later.")
             return
             
         try:
@@ -79,29 +86,29 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Check if user is banned
         if is_user_banned(user.id):
             start_logger.warning(f"Banned user attempted access: {user.id}")
-            await update.message.reply_text("❌ You are banned from using this bot.")
+            await update.message.reply_text(" You are banned from using this bot.")
             return
             
         # Create main menu keyboard based on UI/UX design plan
         keyboard = [
             [
-                InlineKeyboardButton("🔹 Start Game", callback_data="start_game_menu")
+                InlineKeyboardButton("", callback_data="start_game_menu")
             ],
             [
-                InlineKeyboardButton("📊 Leaderboard", callback_data="leaderboard"),
-                InlineKeyboardButton("🧩 Daily Quests", callback_data="daily_quests")
+                InlineKeyboardButton("", callback_data="leaderboard"),
+                InlineKeyboardButton("", callback_data="daily_quests")
             ],
             [
-                InlineKeyboardButton("👤 Profile", callback_data="profile"),
-                InlineKeyboardButton("🛒 Shop", callback_data="shop")
+                InlineKeyboardButton("", callback_data="profile"),
+                InlineKeyboardButton("", callback_data="shop")
             ],
             [
-                InlineKeyboardButton("📢 Support Group", url="https://t.me/bingobot_support"),
-                InlineKeyboardButton("🔔 Updates Channel", url="https://t.me/Bot_SOURCEC")
+                InlineKeyboardButton("", url="https://t.me/bingobot_support"),
+                InlineKeyboardButton("", url="https://t.me/Bot_SOURCEC")
             ],
             [
                 InlineKeyboardButton(
-                    "➕ Add to Group", 
+                    "", 
                     url=f"https://t.me/BINGOOGAME_BOT?startgroup=true"
                 )
             ]
@@ -110,32 +117,32 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         
         # Send welcome message with full keyboard
         await update.message.reply_text(
-            f"👋 Welcome to BINGO BOT 🎉\n\n"
-            f"Choose a mode below to begin:",
+            " Welcome to BINGO BOT \n\n"
+            "Choose a mode below to begin:",
             reply_markup=reply_markup
         )
     except Exception as e:
         start_logger.error(f"Error in start_handler: {str(e)}")
-        await update.message.reply_text("❌ An error occurred. Please try again later.")
+        await update.message.reply_text(" An error occurred. Please try again later.")
 
 # Main menu keyboard layout
 def create_main_menu_keyboard():
     try:
         keyboard = [
             [
-                InlineKeyboardButton("🎮 Start Game", callback_data="create_room"),
-                InlineKeyboardButton("🏆 Leaderboard", callback_data="leaderboard")
+                InlineKeyboardButton("", callback_data="create_room"),
+                InlineKeyboardButton("", callback_data="leaderboard")
             ],
             [
                 InlineKeyboardButton("quests", callback_data="quests"),
                 InlineKeyboardButton("shop", callback_data="shop")
             ],
             [
-                InlineKeyboardButton("ℹ️ Support", callback_data="support"),
-                InlineKeyboardButton("🔔 Updates", callback_data="updates")
+                InlineKeyboardButton("", callback_data="support"),
+                InlineKeyboardButton("", callback_data="updates")
             ],
             [
-                InlineKeyboardButton("➕ Add to Group", url="https://t.me/BINGOOGAME_BOT?startgroup=true")
+                InlineKeyboardButton("", url="https://t.me/BINGOOGAME_BOT?startgroup=true")
             ]
         ]
         return InlineKeyboardMarkup(keyboard)

@@ -31,30 +31,40 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def init_db():
-    """Initialize database tables"""
-    global engine
+    """Initialize database tables with verification"""
     try:
-        # Ensure db directory exists
-        db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-        os.makedirs(db_dir, exist_ok=True)
-        
-        # Explicitly import all models
-        from t1x2y1.db.models import User, Room, Game, Card, Maintenance, Player
+        from t1x2y1.db.models import Base, User, Room, Game, Card, Maintenance, Player
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
-        logger.info(f"Database initialized at: {engine.url}")
-        logger.info(f"Tables created: {list(Base.metadata.tables.keys())}")
+        logger.info(f"Created tables: {Base.metadata.tables.keys()}")
         
         # Verify tables exist
-        from sqlalchemy import inspect
         inspector = inspect(engine)
         existing_tables = inspector.get_table_names()
         logger.info(f"Existing tables: {existing_tables}")
         
+        # Create critical tables if missing
+        required_tables = ['users', 'rooms', 'games', 'cards', 'maintenance', 'players']
+        for table in required_tables:
+            if table not in existing_tables:
+                logger.warning(f"Creating missing table: {table}")
+                if table == 'users':
+                    User.__table__.create(bind=engine)
+                elif table == 'rooms':
+                    Room.__table__.create(bind=engine)
+                elif table == 'games':
+                    Game.__table__.create(bind=engine)
+                elif table == 'cards':
+                    Card.__table__.create(bind=engine)
+                elif table == 'maintenance':
+                    Maintenance.__table__.create(bind=engine)
+                elif table == 'players':
+                    Player.__table__.create(bind=engine)
+                
         return True
     except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}", exc_info=True)
+        logger.error(f"Database init failed: {e}", exc_info=True)
         return False
 
 def get_db():
