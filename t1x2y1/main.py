@@ -69,7 +69,7 @@ command_handlers = {
     'status': status_handler
 }
 
-async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE, handler: callable) -> bool:
+async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Validate command parameters and permissions"""
     try:
         if not update.effective_user:
@@ -93,22 +93,38 @@ async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE, h
         await update.message.reply_text("❌ An error occurred. Please try again later.")
         return False
 
+# Define rate limits
+RATE_LIMITS = {
+    'default': (5, 60),  # 5 requests per 60 seconds
+    'create_room': (2, 30),  # 2 requests per 30 seconds
+    'join_room': (3, 30),  # 3 requests per 30 seconds
+    'start_game': (2, 30),  # 2 requests per 30 seconds
+    'ai_play': (10, 60),  # 10 requests per 60 seconds
+}
+
+# Define custom exceptions
+class RateLimitExceeded(Exception):
+    """Raised when a rate limit is exceeded"""
+    pass
+
 # Add command handlers with rate limiting and validation
 for cmd, handler in command_handlers.items():
     limit = RATE_LIMITS.get(cmd, RATE_LIMITS['default'])
     
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        try:
-            if await validate_command(update, context, handler):
-                return await handler(update, context)
-        except RateLimitExceeded:
-            logger.warning(f"Rate limit exceeded for command {cmd} from user {update.effective_user.id}")
-            await update.message.reply_text("⏳ Please wait a moment before trying again.")
-        except Exception as e:
-            error_logger.error(f"Error handling command {cmd}: {str(e)}", exc_info=True)
-            await update.message.reply_text("❌ An error occurred. Please try again later.")
+    async def create_wrapper(cmd=cmd, handler=handler):
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            try:
+                if await validate_command(update, context):
+                    return await handler(update, context)
+            except RateLimitExceeded:
+                logger.warning(f"Rate limit exceeded for command {cmd} from user {update.effective_user.id}")
+                await update.message.reply_text("⏳ Please wait a moment before trying again.")
+            except Exception as e:
+                logger.error(f"Error handling command {cmd}: {str(e)}", exc_info=True)
+                await update.message.reply_text("❌ An error occurred. Please try again later.")
+        return wrapper
     
-    application.add_handler(CommandHandler(cmd, rate_limited(*limit)(wrapper)))
+    application.add_handler(CommandHandler(cmd, rate_limited(*limit)(create_wrapper())))
 
 # Add admin handlers
 application.add_handler(create_admin_handler())
@@ -122,7 +138,7 @@ callback_handlers = {
     'ai_play': ai_play
 }
 
-async def validate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, handler: callable) -> bool:
+async def validate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Validate callback query permissions"""
     try:
         if not update.callback_query:
@@ -143,11 +159,13 @@ async def validate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 # Add callback query handlers with validation
 for action, handler in callback_handlers.items():
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if await validate_callback(update, context, handler):
-            return await handler(update, context)
+    async def create_callback_wrapper(action=action, handler=handler):
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if await validate_callback(update, context):
+                return await handler(update, context)
+        return wrapper
     
-    application.add_handler(CallbackQueryHandler(wrapper, pattern=f"^{action}_"))
+    application.add_handler(CallbackQueryHandler(create_callback_wrapper(), pattern=f"^{action}_"))
 
 # Add error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -191,29 +209,7 @@ def is_user_banned(user_id: int) -> bool:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         return user and user.banned
 
-async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Validate command parameters and permissions"""
-    try:
-        if not update.effective_user:
-            logger.warning("Command from user not found")
-            await update.message.reply_text("❌ User not found.")
-            return False
-        
-        if maintenance_check(update, context):
-            logger.info("Command blocked due to maintenance mode")
-            return False
-        
-        if is_user_banned(update.effective_user.id):
-            logger.warning(f"Banned user {update.effective_user.id} attempted command")
-            await update.message.reply_text("❌ You are banned from using this bot.")
-            return False
-        
-        logger.info(f"Validated command from user {update.effective_user.id}")
-        return True
-    except Exception as e:
-        logger.error(f"Error in validate_command: {str(e)}", exc_info=True)
-        await update.message.reply_text("❌ An error occurred. Please try again later.")
-        return False
+
 
 application.add_error_handler(error_handler)
 
@@ -221,7 +217,8 @@ application.add_error_handler(error_handler)
 if __name__ == '__main__':
     try:
         logger.info("Starting Bingo Bot...")
-        logger.info(f"Using database: {DATABASE_URL}")
+        database_url = os.getenv('DATABASE_URL', 'sqlite:///bingo.db')
+        logger.info(f"Using database: {database_url}")
         
         # Initialize maintenance mode
         with SessionLocal() as db:

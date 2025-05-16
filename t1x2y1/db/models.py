@@ -25,6 +25,17 @@ class GameStatus(str, PythonEnum):
 RoomStatusEnum = SQLAlchemyEnum(RoomStatus)
 GameStatusEnum = SQLAlchemyEnum(GameStatus)
 
+# Association tables
+room_players = Table('room_players', Base.metadata,
+    Column('room_id', Integer, ForeignKey('rooms.id'), primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True)
+)
+
+game_players = Table('game_players', Base.metadata,
+    Column('game_id', Integer, ForeignKey('games.id'), primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True)
+)
+
 class Maintenance(Base):
     __tablename__ = "maintenance"
     __table_args__ = {'extend_existing': True}
@@ -79,17 +90,8 @@ class Room(Base):
     status = Column(RoomStatusEnum, default=RoomStatus.WAITING)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    owner = relationship("User", back_populates="rooms")
+    # Relationships
     games = relationship("Game", back_populates="room")
-    players = relationship("User", secondary="room_players", back_populates="rooms")
-    
-    # Association table for room players
-    room_players = Table('room_players', Base.metadata,
-        Column('room_id', Integer, ForeignKey('rooms.id'), primary_key=True),
-        Column('user_id', Integer, ForeignKey('users.id'), primary_key=True)
-    )
-    
-    # Relationship backrefs
     owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_rooms")
     players = relationship("User", secondary=room_players, back_populates="rooms")
 
@@ -107,21 +109,9 @@ class Game(Base):
     end_time = Column(DateTime)
     
     room = relationship("Room", back_populates="games")
-    # Association table for game players
-    game_players = Table('game_players', Base.metadata,
-        Column('game_id', Integer, ForeignKey('games.id'), primary_key=True),
-        Column('user_id', Integer, ForeignKey('users.id'), primary_key=True)
-    )
-    
     players = relationship("User", secondary=game_players, back_populates="games")
     cards = relationship("Card", back_populates="game")
     numbers_drawn = Column(JSON, default=list)
-    
-    # Association table for game players
-    game_players = Table('game_players', Base.metadata,
-        Column('game_id', Integer, ForeignKey('games.id')),
-        Column('user_id', Integer, ForeignKey('users.id'))
-    )
 
 # Card model
 class Card(Base):
