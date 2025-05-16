@@ -85,19 +85,6 @@ def create_admin_handler():
 def create_admin_callback_handler():
     """Create callback query handler for admin menu"""
     return CallbackQueryHandler(handle_admin_callback, pattern="^admin_")
-        ["🔄 Reset User", "🔒 Ban User"],
-        ["💰 Give XP", "💎 Give Coins"],
-        ["💾 Backup", "🔧 Maintenance"],
-        ["📄 Logs", "🔙 Back"]
-    ]
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        "Admin Menu:\n\n"
-        "Choose an option:",
-        reply_markup=reply_markup
-    )
 
 async def show_bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show detailed bot statistics"""
