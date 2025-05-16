@@ -38,3 +38,12 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         "Game is starting!\n"
         "Good luck!"
     )
+
+async def ai_play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle AI moves in the game"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "AI is making its move..."
+    )

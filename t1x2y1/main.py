@@ -7,7 +7,7 @@ from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_
 from utils.rate_limit import rate_limited
 
 from handlers.start import start_handler
-from handlers.game import create_room, join_room, start_game
+from handlers.game import create_room, join_room, start_game, ai_play
 from handlers.social import show_social
 from handlers.achievements import show_achievements
 from handlers.events import show_events
@@ -17,6 +17,7 @@ from handlers.leaderboard import show_leaderboard
 from handlers.shop import show_shop
 from handlers.quests import show_quests
 from handlers.custom_cards import show_card_builder
+from utils.rate_limit import rate_limited
 from db.db import init_db
 
 # Set up logging
