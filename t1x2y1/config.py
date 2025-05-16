@@ -12,11 +12,12 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 ENV = os.getenv('ENV', 'development').lower()
 
 # Database configuration
-DATABASE_URL = os.getenv('DATABASE_URL')
-if not DATABASE_URL:
-    if ENV == 'production':
-        raise ValueError("DATABASE_URL must be set in production")
-    DATABASE_URL = 'sqlite:///bingo_bot.db'
+# Use DATABASE_URL if provided, otherwise use SQLite
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///bingo_bot.db')
+
+# In production, log a warning if no DATABASE_URL is set
+if ENV == 'production' and DATABASE_URL == 'sqlite:///bingo_bot.db':
+    logger.warning("No DATABASE_URL found. Using SQLite in production.")
 
 # Maintenance mode
 MAINTENANCE_MODE = False

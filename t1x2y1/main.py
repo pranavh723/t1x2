@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, RATE_LIMITS
 
-from handlers.start import start_handler
+from handlers.admin import create_admin_handler, create_admin_callback_handler
 from handlers.game import create_room, join_room, start_game
 from db.db import init_db
 import logging
