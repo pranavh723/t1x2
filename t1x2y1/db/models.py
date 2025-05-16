@@ -42,6 +42,7 @@ class Card(Base):
 
 class Game(Base):
     __tablename__ = 'games'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True)
     room_id = Column(Integer, ForeignKey('rooms.id'))
@@ -60,6 +61,7 @@ class Game(Base):
 
 class Room(Base):
     __tablename__ = 'rooms'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True)
     room_code = Column(String, unique=True, nullable=False)
@@ -111,6 +113,7 @@ class User(Base):
 # Other classes:
 class Card(Base):
     __tablename__ = 'cards'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'))
@@ -121,11 +124,5 @@ class Card(Base):
     
     user = relationship("User", back_populates="cards")
     game = relationship("Game", back_populates="cards")
-
-# Game class
-# ... (rest of the Game class definition)
-
-# Room class
-# ... (rest of the Room class definition)
 
 
