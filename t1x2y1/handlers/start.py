@@ -36,8 +36,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 def create_main_menu_keyboard():
     keyboard = [
         [
-            InlineKeyboardButton(" Start Game", callback_data="start_game"),
-            InlineKeyboardButton(" Leaderboard", callback_data="leaderboard")
+            InlineKeyboardButton("🎮 Start Game", callback_data="start_game"),
             InlineKeyboardButton("🏆 Leaderboard", callback_data="leaderboard")
         ],
         [
@@ -45,8 +44,8 @@ def create_main_menu_keyboard():
             InlineKeyboardButton("shop", callback_data="shop")
         ],
         [
-            InlineKeyboardButton("", callback_data="support"),
-            InlineKeyboardButton("", callback_data="updates")
+            InlineKeyboardButton("ℹ️ Support", callback_data="support"),
+            InlineKeyboardButton("🔔 Updates", callback_data="updates")
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
