@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, ForeignKey, Boolean, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLAlchemyEnum
@@ -22,6 +22,10 @@ class GameStatus(str, PythonEnum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+# Define SQLAlchemy enums
+RoomStatusEnum = SQLAlchemyEnum(RoomStatus)
+GameStatusEnum = SQLAlchemyEnum(GameStatus)
 
 class Card(Base):
     __tablename__ = 'cards'
@@ -47,7 +51,7 @@ class Game(Base):
     marked = Column(JSON)
     numbers_drawn = Column(JSON, default=list)
     winner_id = Column(Integer)
-    status = Column(SQLAlchemyEnum(GameStatus), default=GameStatus.PENDING)
+    status = Column(GameStatusEnum, default=GameStatus.PENDING)
     start_time = Column(DateTime, default=datetime.utcnow)
     end_time = Column(DateTime)
     
@@ -64,7 +68,7 @@ class Room(Base):
     is_private = Column(Boolean, default=False)
     max_players = Column(Integer, default=5)
     call_type = Column(String, default='auto')
-    status = Column(SQLAlchemyEnum(RoomStatus), default=RoomStatus.WAITING)
+    status = Column(RoomStatusEnum, default=RoomStatus.WAITING)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     owner = relationship("User", back_populates="rooms")
