@@ -7,16 +7,16 @@ from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram.error import BadRequest, TimedOut, NetworkError
-from db.models import User, Room, Game, Player
-from db.database import SessionLocal
 from dotenv import load_dotenv
 from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
 from utils.rate_limit import rate_limited
+from db.database import engine, SessionLocal, Base
+
+from db.models import User, Room, Game, Card, Player, Maintenance
+from utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern, generate_random_number
 from ratelimit import sleep_and_retry, limits
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy import create_engine, Table
-from db.db import init_db
-from db.models import Maintenance
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from utils.user_utils import is_user_banned
 from utils.maintenance_utils import maintenance_check
 
@@ -44,20 +44,40 @@ logger = logging.getLogger(__name__)
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
-# Initialize database and session
-try:
-    # Use SQLite database that will be created automatically
-    engine = create_engine(DATABASE_URL)
-    init_db()
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    logger.info("Database and session initialized successfully")
-except Exception as e:
-    logger.error(f"Database initialization error: {str(e)}")
-    if ENV == 'production':
-        raise
+# Initialize database
+Base.metadata.create_all(bind=engine)
+logger.info("Database initialized and schema updated")
 
-# Import models
-from db.models import User, Room, Game, Card, Maintenance
+# Create database session to check and initialize required data
+db = SessionLocal()
+try:
+    # Check if maintenance record exists, create if not
+    maintenance = db.query(Maintenance).first()
+    if not maintenance:
+        maintenance = Maintenance(enabled=False, message="Bot is currently under maintenance.")
+        db.add(maintenance)
+        db.commit()
+        logger.info("Created initial maintenance record")
+        
+    # Check if admin user exists
+    if OWNER_ID:
+        admin = db.query(User).filter(User.telegram_id == OWNER_ID).first()
+        if not admin:
+            admin = User(
+                telegram_id=OWNER_ID,
+                username="admin",
+                first_name="Admin",
+                xp=1000,
+                coins=9999,
+                theme="admin"
+            )
+            db.add(admin)
+            db.commit()
+            logger.info(f"Created admin user with ID {OWNER_ID}")
+finally:
+    db.close()
+
+# All models and utilities have been imported above
 
 
 # Create application
@@ -341,58 +361,316 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user_id = query.from_user.id
         chat_id = query.message.chat.id
         
+        # Handle start game menu button
+        if query.data == 'start_game_menu':
+            # Create game mode selection keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🎲 Solo vs AI", callback_data="solo_game"),
+                    InlineKeyboardButton("👥 Multiplayer", callback_data="multiplayer_game")
+                ],
+                [
+                    InlineKeyboardButton("🔙 Back", callback_data="back_to_main")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send game mode selection message
+            await query.message.edit_text(
+                "Choose how you want to play Bingo:",
+                reply_markup=reply_markup
+            )
+            
+        # Handle solo game button
+        elif query.data == 'solo_game':
+            # Create AI difficulty selection keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🟢 Easy", callback_data="ai_easy"),
+                    InlineKeyboardButton("🟡 Medium", callback_data="ai_medium"),
+                    InlineKeyboardButton("🔴 Hard", callback_data="ai_hard")
+                ],
+                [
+                    InlineKeyboardButton("🔙 Back", callback_data="start_game_menu")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send AI difficulty selection message
+            await query.message.edit_text(
+                "🤖 Choose AI difficulty:",
+                reply_markup=reply_markup
+            )
+            
+        # Handle multiplayer game button
+        elif query.data == 'multiplayer_game':
+            # Create room setup keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🎮 Create Room", callback_data="create_room"),
+                    InlineKeyboardButton("🌟 Join Room", callback_data="join_room")
+                ],
+                [
+                    InlineKeyboardButton("🔙 Back", callback_data="start_game_menu")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send room options message
+            await query.message.edit_text(
+                "👥 Multiplayer Mode:\n\n"
+                "Create a new room or join an existing one:",
+                reply_markup=reply_markup
+            )
+            
         # Handle create room button
-        if query.data == 'create_room':
+        elif query.data == 'create_room':
             # Check if this is a private chat
             if query.message.chat.type == 'private':
+                # Create room setup keyboard for private chat
+                keyboard = [
+                    [
+                        InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/BINGOOGAME_BOT?startgroup=true")
+                    ],
+                    [
+                        InlineKeyboardButton("🔙 Back", callback_data="multiplayer_game")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
                 # Send instructions for adding to group
-                await query.message.reply_text(
+                await query.message.edit_text(
                     "🎮 To create a Bingo room:\n\n"
                     "1. Add this bot to a group chat\n"
                     "2. Use /create_room command in the group\n"
                     "3. Or use the Create Room button in the group\n\n"
-                    "Click the Add to Group button to add the bot to your group!"
+                    "Click the Add to Group button to add the bot to your group!",
+                    reply_markup=reply_markup
                 )
             else:
-                # This is a group chat, create the room
-                try:
-                    # Create a random room code
-                    room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                # This is a group chat, ask for room setup
+                keyboard = [
+                    [
+                        InlineKeyboardButton("Public Room", callback_data="create_public_room"),
+                        InlineKeyboardButton("Private Room", callback_data="create_private_room")
+                    ],
+                    [
+                        InlineKeyboardButton("2 Players", callback_data="players_2"),
+                        InlineKeyboardButton("3 Players", callback_data="players_3"),
+                        InlineKeyboardButton("5 Players", callback_data="players_5")
+                    ],
+                    [
+                        InlineKeyboardButton("🔙 Back", callback_data="multiplayer_game")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                # Store temporary room settings in user_data
+                context.user_data['room_setup'] = {
+                    'type': 'public',
+                    'max_players': 5,
+                    'auto_call': True
+                }
+                
+                # Send room setup message
+                await query.message.edit_text(
+                    "🎮 Room Setup:\n\n"
+                    "Select room type and max players:",
+                    reply_markup=reply_markup
+                )
+                
+        # Handle room type and player count selection
+        elif query.data.startswith('create_') or query.data.startswith('players_'):
+            # Create database session
+            db = SessionLocal()
+            try:
+                # Update room settings based on selection
+                if query.data == 'create_public_room':
+                    context.user_data['room_setup']['type'] = 'public'
+                elif query.data == 'create_private_room':
+                    context.user_data['room_setup']['type'] = 'private'
+                elif query.data.startswith('players_'):
+                    player_count = int(query.data.split('_')[1])
+                    context.user_data['room_setup']['max_players'] = player_count
+                
+                # Create a random room code
+                room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                
+                # Check if user already has an active room
+                existing_room = db.query(Room).filter(
+                    Room.host_id == user_id,
+                    Room.status != 'FINISHED'
+                ).first()
+                
+                if existing_room:
+                    # Show error and options
+                    keyboard = [
+                        [
+                            InlineKeyboardButton("Continue Setup", callback_data="force_create_room"),
+                            InlineKeyboardButton("Cancel", callback_data="multiplayer_game")
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
                     
-                    # Create database session
-                    db = SessionLocal()
-                    try:
-                        # Create new room in database
-                        new_room = Room(
-                            room_code=room_code,
-                            host_id=user_id,
-                            chat_id=chat_id,
-                            status='WAITING',
-                            created_at=datetime.now()
-                        )
-                        db.add(new_room)
-                        db.commit()
-                        
-                        # Send success message
-                        await query.message.reply_text(
-                            f"🎮 Room created successfully!\n\n"
-                            f"Room code: {room_code}\n\n"
-                            f"Share this code with friends to join!\n"
-                            f"Use /start_game to begin when everyone has joined."
-                        )
-                    finally:
-                        db.close()
-                except Exception as e:
-                    logger.error(f"Error creating room: {str(e)}")
-                    await query.message.reply_text("❌ Failed to create room. Please try again.")
+                    await query.message.edit_text(
+                        f"⚠️ You already have an active room: {existing_room.room_code}\n"
+                        f"Do you want to create a new room anyway?",
+                        reply_markup=reply_markup
+                    )
+                    return
+                
+                # Create new room in database
+                new_room = Room(
+                    room_code=room_code,
+                    host_id=user_id,
+                    chat_id=chat_id,
+                    status='WAITING',
+                    created_at=datetime.now(),
+                    room_type=context.user_data['room_setup']['type'],
+                    max_players=context.user_data['room_setup']['max_players'],
+                    auto_call=context.user_data['room_setup']['auto_call']
+                )
+                db.add(new_room)
+                db.commit()
+                
+                # Create room management keyboard
+                keyboard = [
+                    [
+                        InlineKeyboardButton("🔗 Invite Friends", callback_data=f"invite_{room_code}"),
+                        InlineKeyboardButton("🎮 Start Game", callback_data=f"start_game_{room_code}")
+                    ],
+                    [
+                        InlineKeyboardButton("❌ Leave Room", callback_data="leave_room")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                # Send success message
+                await query.message.edit_text(
+                    f"🎯 Room Created: #{room_code}\n"
+                    f"Players Joined: 1/{context.user_data['room_setup']['max_players']}\n\n"
+                    f"Room Type: {context.user_data['room_setup']['type'].capitalize()}\n"
+                    f"Auto-Call: {'Yes' if context.user_data['room_setup']['auto_call'] else 'No'}",
+                    reply_markup=reply_markup
+                )
+                
+                # Add host as first player
+                new_player = Player(
+                    user_id=user_id,
+                    room_id=new_room.id,
+                    joined_at=datetime.now()
+                )
+                db.add(new_player)
+                db.commit()
+            except Exception as e:
+                logger.error(f"Error creating room: {str(e)}")
+                await query.message.edit_text(
+                    "❌ Failed to create room. Please try again.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Back", callback_data="multiplayer_game")
+                    ]])
+                )
+            finally:
+                db.close()
         
         # Handle join room button
         elif query.data == 'join_room':
             # Create custom keyboard for room code entry
-            await query.message.reply_text(
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔙 Back", callback_data="multiplayer_game")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send room code entry message
+            await query.message.edit_text(
                 "🌟 To join a room, send the room code.\n\n"
-                "Example: /join ABC123"
+                "Example: /join ABC123",
+                reply_markup=reply_markup
             )
+            
+        # Handle invite link generation
+        elif query.data.startswith('invite_'):
+            # Extract room code from callback data
+            room_code = query.data.split('_')[1]
+            
+            # Create invite link
+            invite_link = f"https://t.me/BINGOOGAME_BOT?start=join_{room_code}"
+            
+            # Create keyboard with invite link
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔗 Copy Invite Link", url=invite_link)
+                ],
+                [
+                    InlineKeyboardButton("🔙 Back to Room", callback_data=f"room_info_{room_code}")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send invite message
+            await query.message.edit_text(
+                f"🔗 Invite Friends to Room #{room_code}\n\n"
+                f"Share this link with friends to join your game:\n"
+                f"{invite_link}\n\n"
+                f"Or they can use command: /join {room_code}",
+                reply_markup=reply_markup
+            )
+            
+        # Handle room info display
+        elif query.data.startswith('room_info_'):
+            # Extract room code from callback data
+            room_code = query.data.split('_')[2]
+            
+            # Create database session
+            db = SessionLocal()
+            try:
+                # Get room info
+                room = db.query(Room).filter(Room.room_code == room_code).first()
+                
+                if not room:
+                    await query.message.edit_text(
+                        "❌ Room not found. It may have been deleted.",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back", callback_data="multiplayer_game")
+                        ]])
+                    )
+                    return
+                
+                # Get player count
+                player_count = db.query(Player).filter(Player.room_id == room.id).count()
+                
+                # Create room management keyboard
+                keyboard = [
+                    [
+                        InlineKeyboardButton("🔗 Invite Friends", callback_data=f"invite_{room_code}"),
+                        InlineKeyboardButton("🎮 Start Game", callback_data=f"start_game_{room_code}")
+                    ],
+                    [
+                        InlineKeyboardButton("❌ Leave Room", callback_data="leave_room")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                # Send room info message
+                await query.message.edit_text(
+                    f"🎯 Room: #{room_code}\n"
+                    f"Players Joined: {player_count}/{room.max_players}\n\n"
+                    f"Room Type: {room.room_type.capitalize()}\n"
+                    f"Auto-Call: {'Yes' if room.auto_call else 'No'}",
+                    reply_markup=reply_markup
+                )
+            except Exception as e:
+                logger.error(f"Error getting room info: {str(e)}")
+                await query.message.edit_text(
+                    "❌ Failed to get room info. Please try again.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Back", callback_data="multiplayer_game")
+                    ]])
+                )
+            finally:
+                db.close()
         
         # Handle profile button
         elif query.data == 'profile':
@@ -402,21 +680,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 # Get user from database
                 user = db.query(User).filter(User.telegram_id == user_id).first()
                 if user:
+                    # Create profile keyboard
+                    keyboard = [
+                        [
+                            InlineKeyboardButton("🎨 Change Theme", callback_data="change_theme"),
+                            InlineKeyboardButton("📜 My Stats", callback_data="my_stats")
+                        ],
+                        [
+                            InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
                     # Format user stats
-                    await query.message.reply_text(
-                        f"👤 Your Profile:\n\n"
-                        f"Username: {query.from_user.username or 'Not set'}\n"
-                        f"Games played: {user.games_played or 0}\n"
-                        f"Wins: {user.wins or 0}\n"
+                    await query.message.edit_text(
+                        f"👤 Profile: @{query.from_user.username or query.from_user.first_name}\n\n"
                         f"XP: {user.xp or 0}\n"
                         f"Coins: {user.coins or 0}\n"
-                        f"Streak: {user.streak or 0} days"
+                        f"Theme: {user.theme.capitalize()}\n"
+                        f"Streak: 🔥 {user.streak or 0} Days",
+                        reply_markup=reply_markup
                     )
                 else:
                     # User not found in database
-                    await query.message.reply_text(
+                    keyboard = [
+                        [
+                            InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await query.message.edit_text(
                         "👤 Your Profile:\n\n"
-                        "You don't have a profile yet. Play a game to create one!"
+                        "You don't have a profile yet. Play a game to create one!",
+                        reply_markup=reply_markup
                     )
             finally:
                 db.close()
@@ -426,28 +723,286 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             # Create database session
             db = SessionLocal()
             try:
+                # Create leaderboard view selection keyboard
+                keyboard = [
+                    [
+                        InlineKeyboardButton("📅 Daily", callback_data="leaderboard_daily"),
+                        InlineKeyboardButton("🌍 Global", callback_data="leaderboard_global"),
+                        InlineKeyboardButton("👤 Friends", callback_data="leaderboard_friends")
+                    ],
+                    [
+                        InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
                 # Get top 10 users by XP
                 top_users = db.query(User).order_by(User.xp.desc()).limit(10).all()
                 
                 if top_users:
                     # Format leaderboard
-                    leaderboard_text = "🏆 Global Leaderboard:\n\n"
+                    leaderboard_text = "🏆 Leaderboard - Global\n\n"
                     for i, user in enumerate(top_users):
-                        leaderboard_text += f"{i+1}. {user.username or user.first_name}: {user.xp} XP\n"
+                        leaderboard_text += f"{i+1}. @{user.username or user.first_name} - {user.xp} XP\n"
                     
-                    await query.message.reply_text(leaderboard_text)
+                    await query.message.edit_text(
+                        leaderboard_text,
+                        reply_markup=reply_markup
+                    )
                 else:
                     # No users found
-                    await query.message.reply_text("🏆 Leaderboard is empty. Be the first to play!")
+                    await query.message.edit_text(
+                        "🏆 Leaderboard is empty. Be the first to play!",
+                        reply_markup=reply_markup
+                    )
+            finally:
+                db.close()
+                
+        # Handle shop button
+        elif query.data == 'shop':
+            # Create shop keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🎨 Theme Pack - 50", callback_data="buy_theme"),
+                    InlineKeyboardButton("💥 Power Cut - 30", callback_data="buy_power")
+                ],
+                [
+                    InlineKeyboardButton("🔁 Rematch+ - 20", callback_data="buy_rematch"),
+                    InlineKeyboardButton("💎 Premium Card - 100", callback_data="buy_premium")
+                ],
+                [
+                    InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Create database session to get user coins
+            db = SessionLocal()
+            try:
+                user = db.query(User).filter(User.telegram_id == user_id).first()
+                coins = user.coins if user else 0
+                
+                # Send shop message
+                await query.message.edit_text(
+                    f"🛒 BINGO SHOP\n\n"
+                    f"Your Coins: {coins}\n\n"
+                    f"Spend your coins on power-ups, themes, and upgrades!",
+                    reply_markup=reply_markup
+                )
+            except Exception as e:
+                logger.error(f"Error showing shop: {str(e)}")
+                await query.message.edit_text(
+                    "❌ Failed to load shop. Please try again.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Back", callback_data="back_to_main")
+                    ]])
+                )
+            finally:
+                db.close()
+                
+        # Handle daily quests button
+        elif query.data == 'daily_quests':
+            # Create quests keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Create database session to get user quest progress
+            db = SessionLocal()
+            try:
+                user = db.query(User).filter(User.telegram_id == user_id).first()
+                
+                # Placeholder quest data (would normally come from database)
+                quests = [
+                    {"name": "Play 1 game", "completed": user.games_played > 0 if user else False},
+                    {"name": "Win a game", "completed": user.wins > 0 if user else False},
+                    {"name": "Mark 10 numbers", "completed": False}
+                ]
+                
+                # Format quests message
+                quests_text = "🎯 Daily Quests\n\n"
+                for quest in quests:
+                    status = "✅" if quest["completed"] else "⬜"
+                    quests_text += f"{status} {quest['name']}\n"
+                
+                quests_text += "\nComplete all to earn bonus XP/coins!"
+                
+                # Send quests message
+                await query.message.edit_text(
+                    quests_text,
+                    reply_markup=reply_markup
+                )
+            except Exception as e:
+                logger.error(f"Error showing quests: {str(e)}")
+                await query.message.edit_text(
+                    "❌ Failed to load quests. Please try again.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Back", callback_data="back_to_main")
+                    ]])
+                )
+            finally:
+                db.close()
+        
+        # Handle back to main menu button
+        elif query.data == 'back_to_main':
+            # Create main menu keyboard based on UI/UX design plan
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔹 Start Game", callback_data="start_game_menu")
+                ],
+                [
+                    InlineKeyboardButton("📊 Leaderboard", callback_data="leaderboard"),
+                    InlineKeyboardButton("🧩 Daily Quests", callback_data="daily_quests")
+                ],
+                [
+                    InlineKeyboardButton("👤 Profile", callback_data="profile"),
+                    InlineKeyboardButton("🛒 Shop", callback_data="shop")
+                ],
+                [
+                    InlineKeyboardButton("📢 Support Group", url="https://t.me/bingobot_support"),
+                    InlineKeyboardButton("🔔 Updates Channel", url="https://t.me/Bot_SOURCEC")
+                ],
+                [
+                    InlineKeyboardButton(
+                        "➕ Add to Group", 
+                        url=f"https://t.me/BINGOOGAME_BOT?startgroup=true"
+                    )
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send welcome message with full keyboard
+            await query.message.edit_text(
+                f"👋 Welcome to BINGO BOT 🎉\n\n"
+                f"Choose a mode below to begin:",
+                reply_markup=reply_markup
+            )
+            
+        # Handle AI difficulty selection
+        elif query.data.startswith('ai_'):
+            difficulty = query.data.split('_')[1]
+            
+            # Create game start keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("🔙 Back", callback_data="solo_game")
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            # Send message about starting AI game
+            await query.message.edit_text(
+                f"🤖 Starting {difficulty.capitalize()} AI Game...\n\n"
+                f"Your bingo card will be sent to you in a private message.\n"
+                f"The AI will call numbers automatically.",
+                reply_markup=reply_markup
+            )
+            
+            # Send bingo card to user in private message
+            try:
+                # Generate a 5x5 bingo card
+                bingo_card = generate_bingo_card()
+                
+                # Format the card for display
+                card_text = format_bingo_card(bingo_card)
+                
+                # Create card marking keyboard
+                card_keyboard = create_card_keyboard(bingo_card)
+                card_reply_markup = InlineKeyboardMarkup(card_keyboard)
+                
+                # Send private message with card
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"🎰 Your Bingo Card (vs {difficulty.capitalize()} AI):\n\n{card_text}\n\nTap numbers to mark them. Get 5 in a row to win!",
+                    reply_markup=card_reply_markup
+                )
+            except Exception as e:
+                logger.error(f"Error sending bingo card: {str(e)}")
+                await query.message.edit_text(
+                    "❌ Failed to start game. Please try again.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Back", callback_data="solo_game")
+                    ]])
+                )
+                
+        # Handle leave room button
+        elif query.data == 'leave_room':
+            # Create database session
+            db = SessionLocal()
+            try:
+                # Find player in any active rooms
+                player = db.query(Player).join(Room).filter(
+                    Player.user_id == user_id,
+                    Room.status != 'FINISHED'
+                ).first()
+                
+                if player:
+                    # Remove player from room
+                    db.delete(player)
+                    db.commit()
+                    
+                    # Check if this was the host
+                    room = db.query(Room).filter(Room.id == player.room_id).first()
+                    if room and room.host_id == user_id:
+                        # If host leaves, end the room
+                        room.status = 'CANCELLED'
+                        db.commit()
+                        
+                        # Notify other players if possible
+                        try:
+                            other_players = db.query(Player).filter(
+                                Player.room_id == room.id,
+                                Player.user_id != user_id
+                            ).all()
+                            
+                            for other_player in other_players:
+                                try:
+                                    await context.bot.send_message(
+                                        chat_id=other_player.user_id,
+                                        text=f"❌ The host has left room #{room.room_code}. The game has been cancelled."
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error notifying player {other_player.user_id}: {str(e)}")
+                        except Exception as e:
+                            logger.error(f"Error notifying other players: {str(e)}")
+                    
+                    # Return to main menu
+                    await query.message.edit_text(
+                        "❌ You have left the room.",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                        ]])
+                    )
+                else:
+                    # No active room found
+                    await query.message.edit_text(
+                        "You are not currently in any active rooms.",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                        ]])
+                    )
+            except Exception as e:
+                logger.error(f"Error leaving room: {str(e)}")
+                await query.message.edit_text(
+                    "❌ Failed to leave room. Please try again.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                    ]])
+                )
             finally:
                 db.close()
         
         # Handle other buttons
         else:
             # For any other button, provide a helpful response
-            await query.message.reply_text(
-                f"The '{query.data}' button was pressed.\n\n"
-                "Try using the Create Room or Join Room buttons to play Bingo!"
+            await query.message.edit_text(
+                f"The '{query.data}' feature is coming soon!\n\nStay tuned for updates.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_to_main")
+                ]])
             )
     except Exception as e:
         logger.error(f"Error handling button {query.data}: {str(e)}")

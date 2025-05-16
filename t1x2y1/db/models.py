@@ -57,8 +57,13 @@ class User(Base):
     first_name = Column(String)
     last_name = Column(String)
     xp = Column(Integer, default=0)
-    coins = Column(Integer, default=0)
+    coins = Column(Integer, default=100)  # Start with 100 coins
     streak = Column(Integer, default=0)
+    games_played = Column(Integer, default=0)
+    wins = Column(Integer, default=0)
+    theme = Column(String, default="classic")
+    last_daily_quest = Column(DateTime, nullable=True)
+    daily_quest_progress = Column(JSON, default={})
     items = Column(JSON, default=dict)
     achievements = Column(JSON, default=dict)
     quests = Column(JSON, default=dict)
@@ -72,7 +77,7 @@ class User(Base):
     # Relationships
     rooms = relationship("Room", secondary="room_players", back_populates="players")
     games = relationship("Game", secondary="game_players", back_populates="players")
-    owned_rooms = relationship("Room", foreign_keys="Room.owner_id", back_populates="owner")
+    hosted_rooms = relationship("Room", foreign_keys="Room.host_id", back_populates="host")
     cards = relationship("Card", back_populates="user")
 
 # Room model
@@ -82,17 +87,20 @@ class Room(Base):
     
     id = Column(Integer, primary_key=True)
     room_code = Column(String, unique=True, nullable=False)
-    owner_id = Column(Integer, ForeignKey('users.id'))
-    name = Column(String)
-    is_private = Column(Boolean, default=False)
+    host_id = Column(Integer, ForeignKey('users.id'))
+    chat_id = Column(BigInteger, nullable=True)
+    name = Column(String, nullable=True)
+    room_type = Column(String, default='public')
     max_players = Column(Integer, default=5)
-    call_type = Column(String, default='auto')
+    auto_call = Column(Boolean, default=True)
     status = Column(RoomStatusEnum, default=RoomStatus.WAITING)
     created_at = Column(DateTime, default=datetime.utcnow)
+    numbers_called = Column(JSON, default=list)
+    current_turn = Column(Integer, default=0)
     
     # Relationships
     games = relationship("Game", back_populates="room")
-    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_rooms")
+    host = relationship("User", foreign_keys=[host_id], back_populates="hosted_rooms")
     players = relationship("User", secondary=room_players, back_populates="rooms")
 
 # Game model
@@ -127,3 +135,20 @@ class Card(Base):
     
     user = relationship("User", back_populates="cards")
     game = relationship("Game", back_populates="cards")
+
+# Player model for tracking players in rooms
+class Player(Base):
+    __tablename__ = 'players'
+    __table_args__ = {'extend_existing': True}
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    room_id = Column(Integer, ForeignKey('rooms.id'))
+    card_data = Column(JSON, nullable=True)  # Player's bingo card
+    marked_numbers = Column(JSON, default=list)  # Numbers marked by the player
+    has_bingo = Column(Boolean, default=False)  # Whether player has called bingo
+    joined_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    room = relationship("Room")

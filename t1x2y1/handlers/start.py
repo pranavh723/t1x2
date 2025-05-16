@@ -10,7 +10,7 @@ import logging
 start_logger = logging.getLogger(__name__)
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command"""
+    """Handle /start command - Main entry point for the bot"""
     try:
         start_logger.info(f"Start command received from user {update.effective_user.id}")
         user = update.effective_user
@@ -28,7 +28,10 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     last_name=user.last_name,
                     xp=0,
                     coins=100,  # Initial coins
-                    streak=0
+                    streak=0,
+                    games_played=0,
+                    wins=0,
+                    theme="classic"
                 )
                 db.add(new_user)
                 db.commit()
@@ -46,15 +49,22 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text("❌ You are banned from using this bot.")
             return
             
-        # Create main menu keyboard with all functional buttons
+        # Create main menu keyboard based on UI/UX design plan
         keyboard = [
             [
-                InlineKeyboardButton("🎮 Create Room", callback_data="create_room"),
-                InlineKeyboardButton("🌟 Join Room", callback_data="join_room")
+                InlineKeyboardButton("🔹 Start Game", callback_data="start_game_menu")
+            ],
+            [
+                InlineKeyboardButton("📊 Leaderboard", callback_data="leaderboard"),
+                InlineKeyboardButton("🧩 Daily Quests", callback_data="daily_quests")
             ],
             [
                 InlineKeyboardButton("👤 Profile", callback_data="profile"),
-                InlineKeyboardButton("🏆 Leaderboard", callback_data="leaderboard")
+                InlineKeyboardButton("🛒 Shop", callback_data="shop")
+            ],
+            [
+                InlineKeyboardButton("📢 Support Group", url="https://t.me/bingobot_support"),
+                InlineKeyboardButton("🔔 Updates Channel", url="https://t.me/Bot_SOURCEC")
             ],
             [
                 InlineKeyboardButton(
@@ -67,13 +77,8 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         
         # Send welcome message with full keyboard
         await update.message.reply_text(
-            f"Welcome to Bingo Bot, {user.first_name}!\n\n"
-            "Play Bingo with friends in group chats!\n\n"
-            "🎮 To play:\n"
-            "1. Add the bot to a group\n"
-            "2. Use buttons below or /create_room command\n"
-            "3. Invite friends to join\n"
-            "4. Start the game and have fun!",
+            f"👋 Welcome to BINGO BOT 🎉\n\n"
+            f"Choose a mode below to begin:",
             reply_markup=reply_markup
         )
     except Exception as e:

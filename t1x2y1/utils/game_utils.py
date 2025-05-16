@@ -1,6 +1,11 @@
 import random
-from typing import List, Dict, Tuple
+import logging
+from typing import List, Dict, Tuple, Optional, Union
 from datetime import datetime
+from telegram import InlineKeyboardButton
+
+# Set up logging
+game_logger = logging.getLogger(__name__)
 
 class BingoGame:
     def __init__(self, room_code: str, players: List[int]):
@@ -29,7 +34,7 @@ class BingoGame:
                 
             return card
         except Exception as e:
-            logger.error(f"Error generating card: {str(e)}")
+            game_logger.error(f"Error generating card: {str(e)}")
             return None
 
     def initialize_game(self):
@@ -49,7 +54,7 @@ class BingoGame:
             available_numbers = [num for num in available_numbers if num not in self.numbers_drawn]
             
             if not available_numbers:
-                logger.info("All numbers have been called")
+                game_logger.info("All numbers have been called")
                 return None
                 
             # Add delay for better UX
@@ -60,7 +65,7 @@ class BingoGame:
             self.current_number = number
             return number
         except Exception as e:
-            logger.error(f"Error calling number: {str(e)}")
+            game_logger.error(f"Error calling number: {str(e)}")
             return None
     
     def mark_number(self, player_id: int, number: int) -> bool:
@@ -86,7 +91,7 @@ class BingoGame:
             
             return False
         except Exception as e:
-            logger.error(f"Error marking number: {str(e)}")
+            game_logger.error(f"Error marking number: {str(e)}")
             return False
         
     def check_bingo(self, player_id: int) -> bool:
