@@ -47,10 +47,6 @@ class User(Base):
     ban_reason = Column(String, nullable=True)
     last_seen = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    rooms = relationship("Room", back_populates="owner")
-    games = relationship("Game", back_populates="players")
-    cards = relationship("Card", back_populates="user")
 
 # Room model
 class Room(Base):

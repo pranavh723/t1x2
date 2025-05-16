@@ -48,6 +48,25 @@ def create_shop_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def create_quests_keyboard(quests: list) -> InlineKeyboardMarkup:
+    """Create quests keyboard with available quests"""
+    keyboard = []
+    
+    # Add quests
+    for quest in quests:
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{quest['name']} - {quest['progress']}/{quest['target']}",
+                callback_data=f"quest_{quest['id']}")
+        ])
+    
+    # Add back button
+    keyboard.append([
+        InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+    ])
+    
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []

@@ -113,8 +113,13 @@ class QuestSystem:
     
     def _award_quest_rewards(self, user_id: int, quest_type: str, period: str) -> None:
         """Award rewards for completed quest"""
-        quest = self.daily_quests[quest_type] if period == 'daily' else self.weekly_quests[quest_type]
+        # Use period to determine quest type
+        if period == 'daily':
+            quest = self.daily_quests[quest_type]
+        else:
+            quest = self.weekly_quests[quest_type]
         
+        # Award rewards
         xp_system.award_xp(user_id, quest_type, quest['xp_reward'])
         coin_system.award_coins(user_id, quest_type, quest['coin_reward'])
     
