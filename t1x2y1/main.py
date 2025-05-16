@@ -11,6 +11,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine, Table
 from db.db import init_db
 from db.models import Maintenance
+from utils.user_utils import is_user_banned
+from utils.maintenance_utils import maintenance_check
 
 # Load environment variables
 load_dotenv()

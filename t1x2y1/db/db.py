@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 import logging
 from contextlib import contextmanager
+from config import DATABASE_URL
 
 # Import Base from the local models module
 from db.models import Base
@@ -10,7 +11,6 @@ from db.models import Base
 logger = logging.getLogger(__name__)
 
 # Create engine with SQLite database
-DATABASE_URL = 'sqlite:///bingo.db'
 engine = create_engine(DATABASE_URL, echo=False)
 
 # Create session maker

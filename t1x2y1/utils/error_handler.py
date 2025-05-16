@@ -1,10 +1,18 @@
 from typing import Dict, Tuple
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.error import TelegramError
+from telegram.ext import ContextTypes
+from telegram.error import TelegramError, NetworkError, BadRequest, TimedOut
 from utils.constants import ERROR_MESSAGES, EMOJIS
 from ratelimit import sleep_and_retry, limits
 from functools import wraps
 import time
+import logging
+
+# Set up logger
+error_logger = logging.getLogger(__name__)
+
+# Create a global instance of the error handler
+error_handler = None
 
 class RateLimitExceeded(Exception):
     """Raised when rate limit is exceeded"""
@@ -117,7 +125,7 @@ class ErrorHandler:
     def _get_error_type(self, error: Exception) -> str:
         """Determine error type based on exception"""
         if isinstance(error, TelegramError):
-            if isinstance(error, TimeoutError):
+            if isinstance(error, TimedOut):
                 return 'timeout'
             elif isinstance(error, NetworkError):
                 return 'network'
