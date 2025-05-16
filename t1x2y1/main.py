@@ -20,8 +20,6 @@ from handlers.custom_cards import show_card_builder
 from db.db import init_db, SessionLocal, Base
 from db.models import Maintenance
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, scoped_session
-from sqlalchemy.orm.session import sessionmaker
 
 # Set up logging
 logging.basicConfig(
@@ -99,6 +97,25 @@ application.add_handler(CommandHandler("start", rate_limited(*RATE_LIMITS['start
 application.add_handler(CommandHandler("leaderboard", rate_limited(*RATE_LIMITS['default'])(show_leaderboard)))
 application.add_handler(CommandHandler("shop", rate_limited(*RATE_LIMITS['shop'])(show_shop)))
 application.add_handler(CommandHandler("quests", rate_limited(*RATE_LIMITS['default'])(show_quests)))
+application.add_handler(CommandHandler("social", rate_limited(*RATE_LIMITS['default'])(show_social)))
+application.add_handler(CommandHandler("achievements", rate_limited(*RATE_LIMITS['default'])(show_achievements)))
+application.add_handler(CommandHandler("events", rate_limited(*RATE_LIMITS['default'])(show_events)))
+application.add_handler(CommandHandler("analytics", rate_limited(*RATE_LIMITS['default'])(show_analytics)))
+application.add_handler(CommandHandler("card_builder", rate_limited(*RATE_LIMITS['default'])(show_card_builder)))
+
+# Add game command handlers
+application.add_handler(CommandHandler("create_room", rate_limited(*RATE_LIMITS['game'])(create_room)))
+application.add_handler(CommandHandler("join_room", rate_limited(*RATE_LIMITS['game'])(join_room)))
+application.add_handler(CommandHandler("start_game", rate_limited(*RATE_LIMITS['game'])(start_game)))
+application.add_handler(CommandHandler("ai_play", rate_limited(*RATE_LIMITS['game'])(ai_play)))
+
+# Add admin handlers
+admin_handler = create_admin_handler()
+application.add_handler(admin_handler)
+
+# Add admin callback handler
+admin_callback_handler = create_admin_callback_handler()
+application.add_handler(admin_callback_handler)
 application.add_handler(CommandHandler("cards", rate_limited(*RATE_LIMITS['default'])(show_card_builder)))
 application.add_handler(CommandHandler("events", rate_limited(*RATE_LIMITS['default'])(show_events)))
 application.add_handler(CommandHandler("achievements", rate_limited(*RATE_LIMITS['default'])(show_achievements)))
@@ -165,36 +182,27 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 async def maintenance_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Check if bot is in maintenance mode"""
     if MAINTENANCE_MODE:
-        if update.effective_user.id != OWNER_ID:
-            await update.message.reply_text(MAINTENANCE_MESSAGE)
-            return True
+        await update.message.reply_text(MAINTENANCE_MESSAGE)
+        return True
     return False
 
-async def is_user_banned(user_id: int) -> bool:
+def is_user_banned(user_id: int) -> bool:
     """Check if user is banned"""
-    with SessionLocal() as db:
-        user = db.query(User).filter(User.telegram_id == user_id).first()
-        return user.banned if user else False
+    return user_id in BANNED_USERS
 
-async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Validate command parameters and permissions"""
-    command = context.args[0] if context.args else None
+    if not update.message:
+        return False
     
-    # Check if command exists
-    if not command:
-        await update.message.reply_text("Please provide a valid command.")
+    if maintenance_check(update, context):
         return False
         
-    # Add specific command validations here
+    if is_user_banned(update.effective_user.id):
+        update.message.reply_text("You are banned from using this bot.")
+        return False
+        
     return True
-
-async def maintenance_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if bot is in maintenance mode"""
-    if MAINTENANCE_MODE:
-        if update.effective_user.id != OWNER_ID:
-            await update.message.reply_text(MAINTENANCE_MESSAGE)
-            return True
-    return False
 
 application.add_error_handler(error_handler)
 
