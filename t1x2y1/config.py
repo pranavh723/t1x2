@@ -17,9 +17,6 @@ ENV = "production"
 BOT_SUPPORT_LINK = "https://t.me/bingobot_support"
 BOT_CHANNEL_LINK = "https://t.me/Bot_SOURCEC"
 
-# Database configuration
-DATABASE_URL = "sqlite:///bingo.db"
-
 # Maintenance mode
 MAINTENANCE_MODE = False
 MAINTENANCE_MESSAGE = "The bot is currently in maintenance mode. Please try again later."

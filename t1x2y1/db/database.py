@@ -11,10 +11,8 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# Import DATABASE_URL from config
-from t1x2y1.config import DATABASE_URL
-if not DATABASE_URL:
-    DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///bingo.db')
+# Database configuration from environment variables
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///db/bingo_bot.db')
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -40,9 +38,9 @@ def init_db():
         import sys
         import importlib
         
-        # Try to import models using both possible import paths
-        from t1x2y1.db import models
-        logger.info("Successfully imported models from t1x2y1.db")
+        # Import models directly
+        from db import models
+        logger.info("Successfully imported models from local db package")
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
