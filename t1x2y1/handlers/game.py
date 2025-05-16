@@ -1,6 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
-from utils.ui import create_game_keyboard
 
 async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Create a new game room"""
