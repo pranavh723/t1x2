@@ -1,6 +1,6 @@
-from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler
-from main import OWNER_ID
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
+from config import OWNER_ID
 from db.db import SessionLocal
 from db.models import User
 import logging

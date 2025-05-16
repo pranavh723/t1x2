@@ -1,26 +1,20 @@
 import os
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
-from telegram.error import TelegramError
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
+from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+
 from handlers.start import start_handler
 from handlers.game import create_room, join_room, start_game
-from handlers.ai import ai_play
-from handlers.leaderboard import show_leaderboard
-from handlers.shop import show_shop
-from handlers.quests import show_quests
-from handlers.custom_cards import show_card_builder
-from handlers.events import show_events
-from handlers.achievements import show_achievements
-from handlers.social import show_social
-from handlers.analytics import show_analytics
-from handlers.admin import create_admin_handler
 from db.db import init_db
-from db.maintenance import Maintenance
-from ratelimit import limits, sleep_and_retry
-from functools import wraps
 import logging
-from logging_config import logger
+
+# Set up logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # Rate limiting constants
 ONE_MINUTE = 60
