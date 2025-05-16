@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 from utils.rate_limit import rate_limited
 from ratelimit import sleep_and_retry, limits
-from sqlalchemy.orm import sessionmaker
-from db.db import init_db, engine
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine, Table
+from db.db import init_db
 from db.models import Maintenance
 
 # Load environment variables
@@ -40,6 +41,7 @@ if not TELEGRAM_BOT_TOKEN:
 
 # Initialize database and session
 try:
+    engine = create_engine(os.getenv('DATABASE_URL', 'sqlite:///bingo.db'))
     init_db()
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     logger.info("Database and session initialized successfully")
@@ -48,8 +50,8 @@ except Exception as e:
     if ENV == 'production':
         raise
 
-# Import User model for session usage
-from db.models import User
+# Import models
+from db.models import User, Room, Game, Card, Maintenance
 
 
 # Create application
@@ -189,16 +191,28 @@ def is_user_banned(user_id: int) -> bool:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         return user and user.banned
 
-def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Validate command parameters and permissions"""
-    if not update.effective_user:
-        return False
-    
-    if maintenance_check(update, context):
-        return False
-        
-    if is_user_banned(update.effective_user.id):
-        await update.message.reply_text("❌ You are banned from using this bot.")
+    try:
+        if not update.effective_user:
+            logger.warning("Command from user not found")
+            await update.message.reply_text("❌ User not found.")
+            return False
+            
+        if maintenance_check(update, context):
+            logger.info("Command blocked due to maintenance mode")
+            return False
+            
+        if is_user_banned(update.effective_user.id):
+            logger.warning(f"Banned user {update.effective_user.id} attempted command")
+            await update.message.reply_text("❌ You are banned from using this bot.")
+            return False
+            
+        logger.info(f"Validated command from user {update.effective_user.id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error in validate_command: {str(e)}", exc_info=True)
+        await update.message.reply_text("❌ An error occurred. Please try again later.")
         return False
         
     return True
