@@ -14,9 +14,16 @@ if project_root not in sys.path:
 from t1x2y1.db.models import Maintenance
 from t1x2y1.db.database import SessionLocal
 from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-        print("Error: Could not import database modules")
-        MAINTENANCE_MODE = False
-        MAINTENANCE_MESSAGE = "Bot is currently under maintenance. Please try again later."
+
+def check_maintenance():
+    try:
+        # Test database connection
+        db = SessionLocal()
+        db.close()
+        return MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+    except Exception as e:
+        print(f"Error: {e}")
+        return True, "Bot is currently under maintenance. Please try again later."
 
 # Set up logger
 maintenance_logger = logging.getLogger(__name__)
