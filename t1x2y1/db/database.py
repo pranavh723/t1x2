@@ -19,8 +19,15 @@ logger = logging.getLogger(__name__)
 
 # Create engine
 try:
+    # Ensure database directory exists
+    db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db')
+    os.makedirs(db_dir, exist_ok=True)
+    
     engine = create_engine(DATABASE_URL)
     logger.info(f"Database engine created with URL: {DATABASE_URL}")
+    
+    # Initialize database on startup
+    init_db()
 except Exception as e:
     logger.error(f"Error creating database engine: {str(e)}")
     raise
