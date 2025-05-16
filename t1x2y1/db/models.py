@@ -1,20 +1,23 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, ForeignKey, Enum, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import Enum as SQLAlchemyEnum
 from datetime import datetime
-from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, validator
 
+# Define enums using Python's Enum
+from enum import Enum as PythonEnum
+
 Base = declarative_base()
 
-class RoomStatus(str, Enum):
+class RoomStatus(str, PythonEnum):
     WAITING = "waiting"
     STARTED = "started"
     FINISHED = "finished"
     CANCELLED = "cancelled"
 
-class GameStatus(str, Enum):
+class GameStatus(str, PythonEnum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -44,7 +47,7 @@ class Game(Base):
     marked = Column(JSON)
     numbers_drawn = Column(JSON, default=list)
     winner_id = Column(Integer)
-    status = Column(Enum(GameStatus), default=GameStatus.PENDING)
+    status = Column(SQLAlchemyEnum(GameStatus), default=GameStatus.PENDING)
     start_time = Column(DateTime, default=datetime.utcnow)
     end_time = Column(DateTime)
     
@@ -61,7 +64,7 @@ class Room(Base):
     is_private = Column(Boolean, default=False)
     max_players = Column(Integer, default=5)
     call_type = Column(String, default='auto')
-    status = Column(Enum(RoomStatus), default=RoomStatus.WAITING)
+    status = Column(SQLAlchemyEnum(RoomStatus), default=RoomStatus.WAITING)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     owner = relationship("User", back_populates="rooms")
