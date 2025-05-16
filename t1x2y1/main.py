@@ -4,10 +4,22 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, RATE_LIMITS
 
-from handlers.admin import create_admin_handler, create_admin_callback_handler
+from handlers.start import start_handler
 from handlers.game import create_room, join_room, start_game
+from handlers.social import show_social
+from handlers.achievements import show_achievements
+from handlers.events import show_events
+from handlers.analytics import show_analytics
+from handlers.admin import create_admin_handler, create_admin_callback_handler
 from db.db import init_db
 import logging
+
+# Set up logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 # Set up logging
 logging.basicConfig(
@@ -88,6 +100,7 @@ application.add_handler(CommandHandler("achievements", rate_limited(*RATE_LIMITS
 application.add_handler(CommandHandler("social", rate_limited(*RATE_LIMITS['default'])(show_social)))
 application.add_handler(CommandHandler("analytics", rate_limited(*RATE_LIMITS['default'])(show_analytics)))
 application.add_handler(create_admin_handler())
+application.add_handler(create_admin_callback_handler())
 
 # Callback query handlers
 application.add_handler(CallbackQueryHandler(create_room, pattern="^create_room$"))
