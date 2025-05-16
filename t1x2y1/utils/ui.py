@@ -17,6 +17,19 @@ def create_main_menu_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def create_leaderboard_keyboard(page=1):
+    """Create leaderboard keyboard with pagination"""
+    keyboard = [
+        [
+            InlineKeyboardButton("◀️ Previous", callback_data=f"leaderboard_{page-1}"),
+            InlineKeyboardButton("Next ▶️", callback_data=f"leaderboard_{page+1}")
+        ],
+        [
+            InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []
