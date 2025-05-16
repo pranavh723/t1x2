@@ -145,9 +145,8 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         game_logger.error(f"Error in create_room for user {user_id}: {str(e)}", exc_info=True)
         await error_handler.handle_error(update, e)
     finally:
-        db.close() if db else None
-    finally:
-        db.close()
+        if db:
+            db.close()
 
 @error_handler.rate_limited(limit=(5, 60))
 async def join_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -278,7 +277,8 @@ async def join_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         game_logger.error(f"Error in join_room for user {user_id}: {str(e)}", exc_info=True)
         await error_handler.handle_error(update, e)
     finally:
-        db.close() if db else None
+        if db:
+            db.close()
 
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Start the game"""
