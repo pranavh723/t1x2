@@ -4,7 +4,7 @@ from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from dotenv import load_dotenv
-from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
 from utils.rate_limit import rate_limited
 from ratelimit import sleep_and_retry, limits
 from sqlalchemy.orm import sessionmaker, Session
@@ -15,10 +15,7 @@ from db.models import Maintenance
 # Load environment variables
 load_dotenv()
 
-# Get token from environment
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-if not TELEGRAM_BOT_TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
+# Bot token and owner ID are imported from config.py
 
 # Import handlers
 from handlers.start import start_handler
@@ -41,7 +38,8 @@ if not TELEGRAM_BOT_TOKEN:
 
 # Initialize database and session
 try:
-    engine = create_engine(os.getenv('DATABASE_URL', 'sqlite:///bingo.db'))
+    # Use SQLite database that will be created automatically
+    engine = create_engine(DATABASE_URL)
     init_db()
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     logger.info("Database and session initialized successfully")
@@ -217,8 +215,7 @@ application.add_error_handler(error_handler)
 if __name__ == '__main__':
     try:
         logger.info("Starting Bingo Bot...")
-        database_url = os.getenv('DATABASE_URL', 'sqlite:///bingo.db')
-        logger.info(f"Using database: {database_url}")
+        logger.info(f"Using database: {DATABASE_URL}")
         
         # Initialize maintenance mode
         with SessionLocal() as db:

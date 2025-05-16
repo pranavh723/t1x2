@@ -1,9 +1,4 @@
-import os
 import logging
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Set up logging
 logging.basicConfig(
@@ -12,31 +7,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Required environment variables
-required_vars = ['TELEGRAM_BOT_TOKEN', 'OWNER_ID', 'ADMIN_ID', 'DATABASE_URL', 'ENV']
-missing_vars = [var for var in required_vars if not os.getenv(var)]
+# Hardcoded configuration values
+TELEGRAM_BOT_TOKEN = "7662693814:AAHZ7i7YKwpWvmpAWceo1e05pilDcYbpXEE"
+OWNER_ID = 6985505204
+ADMIN_ID = 6985505204
+ENV = "production"
 
-if missing_vars:
-    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
-# Configuration constants
-OWNER_ID = int(os.getenv('OWNER_ID'))
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID'))
-
-# Get environment
-ENV = os.getenv('ENV', 'development').lower()
+# Bot support and channel links
+BOT_SUPPORT_LINK = "https://t.me/bingobot_support"
+BOT_CHANNEL_LINK = "https://t.me/Bot_SOURCEC"
 
 # Database configuration
-DATABASE_URL = os.getenv('DATABASE_URL')
-
-# In development, log a warning if no TELEGRAM_BOT_TOKEN is set
-if ENV == 'development' and not TELEGRAM_BOT_TOKEN:
-    logger.warning("No TELEGRAM_BOT_TOKEN found. Please set it in your environment variables.")
+DATABASE_URL = "sqlite:///bingo.db"
 
 # Maintenance mode
-MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'false').lower() == 'true'
-MAINTENANCE_MESSAGE = os.getenv('MAINTENANCE_MESSAGE', "The bot is currently in maintenance mode. Please try again later.")
+MAINTENANCE_MODE = False
+MAINTENANCE_MESSAGE = "The bot is currently in maintenance mode. Please try again later."
 
 # Rate limiting constants
 ONE_MINUTE = 60
