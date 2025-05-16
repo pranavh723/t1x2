@@ -198,16 +198,16 @@ async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             logger.warning("Command from user not found")
             await update.message.reply_text("❌ User not found.")
             return False
-            
+        
         if maintenance_check(update, context):
             logger.info("Command blocked due to maintenance mode")
             return False
-            
+        
         if is_user_banned(update.effective_user.id):
             logger.warning(f"Banned user {update.effective_user.id} attempted command")
             await update.message.reply_text("❌ You are banned from using this bot.")
             return False
-            
+        
         logger.info(f"Validated command from user {update.effective_user.id}")
         return True
     except Exception as e:
