@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from rewards.coin_system import coin_system
 from utils.ui import create_shop_keyboard
+from typing import Dict
 
 async def show_shop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show the shop interface"""
