@@ -3,6 +3,7 @@ import logging
 from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.error import BadRequest, TimedOut, NetworkError
 from dotenv import load_dotenv
 from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
 from utils.rate_limit import rate_limited
@@ -101,95 +102,129 @@ RATE_LIMITS = {
     'start_game': (2, 30),  # 2 requests per 30 seconds
     'ai_play': (10, 60),  # 10 requests per 60 seconds
 }
-
 # Define custom exceptions
 class RateLimitExceeded(Exception):
     """Raised when a rate limit is exceeded"""
     pass
 
-# Add command handlers directly for simplicity
+# Register command handlers
 logger.info("Registering command handlers...")
 
-# Register the start handler directly
+# Add essential command handlers directly
 application.add_handler(CommandHandler("start", start_handler))
-logger.info("Registered /start command handler")
+application.add_handler(CommandHandler("help", start_handler)) # Replaced help_handler with start_handler
 
-# Register other command handlers
-application.add_handler(CommandHandler("leaderboard", show_leaderboard))
-application.add_handler(CommandHandler("shop", show_shop))
-application.add_handler(CommandHandler("create_room", create_room))
-application.add_handler(CommandHandler("join_room", join_room))
-application.add_handler(CommandHandler("start_game", start_game))
-application.add_handler(CommandHandler("ai_play", ai_play))
-application.add_handler(CommandHandler("status", status_handler))
-logger.info("All command handlers registered successfully")
+# Simplified handler for all other commands
+async def not_implemented_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Temporary handler for commands not yet implemented"""
+    command = update.message.text.split()[0].replace('/', '')
+    await update.message.reply_text(
+        f"The /{command} command is coming soon!\n\n"
+        "Please use /start to see available features."
+    )
+    logger.info(f"User {update.effective_user.id} attempted to use /{command} command")
+
+# Register other commands with the temporary handler
+application.add_handler(CommandHandler("create_room", not_implemented_handler))
+application.add_handler(CommandHandler("join", not_implemented_handler))
+application.add_handler(CommandHandler("start_game", not_implemented_handler))
+application.add_handler(CommandHandler("profile", not_implemented_handler))
+application.add_handler(CommandHandler("stats", not_implemented_handler))
+application.add_handler(CommandHandler("leaderboard", not_implemented_handler))
+application.add_handler(CommandHandler("shop", not_implemented_handler))
+application.add_handler(CommandHandler("ai_play", not_implemented_handler))
+application.add_handler(CommandHandler("status", not_implemented_handler))
 
 # Add admin handlers
 application.add_handler(create_admin_handler())
 application.add_handler(create_admin_callback_handler())
 
-# Add callback query handlers directly
+# Add a simple callback handler for all buttons
 logger.info("Registering callback query handlers...")
 
-# Register callback handlers for specific patterns
-application.add_handler(CallbackQueryHandler(create_room, pattern='^create_room'))
-application.add_handler(CallbackQueryHandler(join_room, pattern='^join_room'))
-application.add_handler(CallbackQueryHandler(start_game, pattern='^start_game'))
-application.add_handler(CallbackQueryHandler(ai_play, pattern='^ai_play'))
-
-# Add a general callback handler for other buttons
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle button presses that don't match other patterns"""
+    """Handle all button presses with a single handler"""
     query = update.callback_query
     await query.answer()
     
     # Log the callback data
     logger.info(f"Button pressed: {query.data} by user {query.from_user.id}")
     
-    if query.data == 'leaderboard':
-        await show_leaderboard(update, context)
-    elif query.data == 'shop':
-        await show_shop(update, context)
-    elif query.data == 'support':
-        await query.message.reply_text(
-            "Need help? Contact our support: https://t.me/bingobot_support"
-        )
-    elif query.data == 'updates':
-        await query.message.reply_text(
-            "Stay updated with our latest news: https://t.me/Bot_SOURCEC"
-        )
-    else:
-        await query.message.reply_text(f"Button {query.data} pressed but no handler found.")
+    try:
+        if query.data == 'play_bingo':
+            await query.message.reply_text(
+                "🎮 To play Bingo:\n\n"
+                "1. Add this bot to a group chat\n"
+                "2. Use /create_room command in the group\n"
+                "3. Invite friends to join\n"
+                "4. Start the game and have fun!"
+            )
+        elif query.data == 'profile':
+            await query.message.reply_text(
+                "👤 Your Profile:\n\n"
+                "Username: " + (query.from_user.username or "Not set") + "\n"
+                "Games played: 0\n"
+                "Wins: 0\n"
+                "Profile features coming soon!"
+            )
+        else:
+            await query.message.reply_text(f"The '{query.data}' feature is coming soon!")
+    except Exception as e:
+        logger.error(f"Error handling button {query.data}: {str(e)}")
+        await query.message.reply_text("❌ An error occurred. Please try again later.")
 
-# Add the general button handler for any other callback patterns
+# Register the button handler for all callback patterns
 application.add_handler(CallbackQueryHandler(button_handler))
-logger.info("All callback handlers registered successfully")
+logger.info("Button handler registered successfully")
 
 # Add error handler
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log errors caused by updates."""
     try:
-        logger.error(f'Update {update} caused error {context.error}')
+        # Log the error
+        logger.error(f'Update {update} caused error: {context.error}')
+        
+        # Get user ID for logging if available
+        user_id = None
+        if update and hasattr(update, 'effective_user') and update.effective_user:
+            user_id = update.effective_user.id
+            logger.error(f'Error occurred for user {user_id}')
         
         # Handle specific errors
-        if isinstance(context.error, telegram.error.BadRequest):
-            logger.error("Bad request error: %s", str(context.error))
-        elif isinstance(context.error, telegram.error.TimedOut):
-            logger.error("Timeout error: %s", str(context.error))
-        elif isinstance(context.error, telegram.error.NetworkError):
-            logger.error("Network error: %s", str(context.error))
+        error_message = "An error occurred. Please try again later."
+        if isinstance(context.error, BadRequest):
+            logger.error(f"Bad request error: {str(context.error)}")
+            error_message = "Invalid request. Please try again."
+        elif isinstance(context.error, TimedOut):
+            logger.error(f"Timeout error: {str(context.error)}")
+            error_message = "Request timed out. Please try again."
+        elif isinstance(context.error, NetworkError):
+            logger.error(f"Network error: {str(context.error)}")
+            error_message = "Network error. Please check your connection."
+        
+        # Send error notification to user
+        try:
+            if update and hasattr(update, 'effective_message') and update.effective_message:
+                await update.effective_message.reply_text(f"❌ {error_message}")
+            elif update and hasattr(update, 'callback_query') and update.callback_query:
+                await update.callback_query.answer(f"❌ {error_message}", show_alert=True)
+        except Exception as e:
+            logger.error(f"Failed to send error notification: {str(e)}")
             
-        # Send error message to admin
+        # Send error to admin if OWNER_ID is defined
         if OWNER_ID:
-            await context.bot.send_message(
-                chat_id=OWNER_ID,
-                text=f"⚠️ Error in bot:\n\n"
-                     f"Error: {str(context.error)}\n"
-                     f"Update: {str(update)}\n"
-                     f"Traceback: {str(context.error.__traceback__)}"
-            )
+            try:
+                error_text = f"⚠️ Bot Error Report:\n\n"
+                error_text += f"Error: {str(context.error)}\n"
+                if user_id:
+                    error_text += f"User: {user_id}\n"
+                error_text += f"Update type: {type(update).__name__}"
+                
+                await context.bot.send_message(chat_id=OWNER_ID, text=error_text)
+            except Exception as e:
+                logger.error(f"Failed to send error to admin: {str(e)}")
     except Exception as e:
-        logger.error(f"Failed to send error notification: {str(e)}")
+        logger.error(f"Exception in error handler: {str(e)}")
 
 application.add_error_handler(error_handler)
 

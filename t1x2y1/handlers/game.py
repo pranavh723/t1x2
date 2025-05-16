@@ -45,8 +45,19 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             raise InvalidUserError("User not found")
             
         # Validate chat type
-        if update.effective_chat.type != 'group':
-            raise InvalidChatTypeError("This command can only be used in a group chat")
+        if update.effective_chat.type not in ['group', 'supergroup']:
+            # If this is a callback query in private chat, provide a helpful message
+            if update.callback_query:
+                await update.callback_query.answer("This feature can only be used in a group chat")
+                await update.effective_message.reply_text(
+                    "🔄 To create a game room:\n\n"
+                    "1. Add this bot to a group\n"
+                    "2. Use /create_room command in the group\n\n"
+                    "Click the 'Add to Group' button below to add the bot to your group!"
+                )
+                return
+            else:
+                raise InvalidChatTypeError("This command can only be used in a group chat")
             
         # Check maintenance mode
         if MAINTENANCE_MODE:
@@ -58,9 +69,13 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             game_logger.warning(f"Banned user {user_id} attempted to create room")
             raise BannedUserError("You are banned from using this bot")
             
-        # Check if user has active room
-        db = SessionLocal()
+        # Initialize database session
+        db = None
         try:
+            # Create database session
+            db = SessionLocal()
+            
+            # Check if user has active room
             active_room = db.query(Room).filter(
                 Room.host_id == user_id,
                 Room.status != RoomStatus.FINISHED
@@ -86,7 +101,9 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 raise RoomLimitExceededError(f"This chat has reached the maximum number of rooms ({MAX_ROOMS_PER_CHAT})")
                 
         finally:
-            db.close()
+            # Close database session if it was created
+            if db is not None:
+                db.close()
             
         # Create room
         room = create_room_func(
