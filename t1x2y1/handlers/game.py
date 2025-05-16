@@ -3,18 +3,27 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import random
 import string
+import logging
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 
 from db.models import Room, Game, User, RoomStatus
 from db.db import SessionLocal
-from utils.constants import ROOM_SIZE_LIMIT, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, EMOJIS
+from utils.constants import ROOM_SIZE_LIMIT, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, EMOJIS, MAX_ROOMS_PER_USER, MAX_ROOMS_PER_CHAT
 from handlers.start import is_user_banned
 from handlers.room import room_management
 from utils.error_handler import error_handler
+from utils.exceptions import (
+    InvalidUserError, InvalidChatTypeError, MaintenanceModeError, BannedUserError, 
+    RoomNotFoundError, RateLimitExceeded, AlreadyJoinedError, RoomLimitExceededError, 
+    RoomCreationError
+)
 from ratelimit import sleep_and_retry, limits
 from functools import wraps
+
+# Set up logger
+game_logger = logging.getLogger(__name__)
 
 # Game keyboard layout
 def create_game_keyboard():

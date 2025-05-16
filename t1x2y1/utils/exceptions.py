@@ -75,3 +75,11 @@ class InvalidChatTypeError(BingoError):
 class RateLimitExceeded(BingoError):
     """Raised when rate limit is exceeded"""
     pass
+
+class InvalidUserError(BingoError):
+    """Raised when user is invalid"""
+    pass
+
+class RoomCreationError(BingoError):
+    """Raised when room creation fails"""
+    pass
