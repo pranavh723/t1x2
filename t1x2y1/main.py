@@ -1,5 +1,6 @@
 import os
 
+import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import OWNER_ID, TELEGRAM_BOT_TOKEN, DATABASE_URL, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, RATE_LIMITS
