@@ -1,25 +1,30 @@
 import os
-
 import logging
+from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from config import OWNER_ID, TELEGRAM_BOT_TOKEN, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from dotenv import load_dotenv
+from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 from utils.rate_limit import rate_limited
+from ratelimit import sleep_and_retry, limits
+from db.db import init_db, SessionLocal
+from db.models import Maintenance
 
+# Load environment variables
+load_dotenv()
+
+# Get token from environment
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN not found in environment variables")
+
+# Import handlers
 from handlers.start import start_handler
 from handlers.game import create_room, join_room, start_game, ai_play
-from handlers.social import show_social
-from handlers.achievements import show_achievements
-from handlers.events import show_events
-from handlers.analytics import show_analytics
+from handlers.shop import show_shop
 from handlers.admin import create_admin_handler, create_admin_callback_handler
 from handlers.leaderboard import show_leaderboard
-from handlers.shop import show_shop
-from handlers.quests import show_quests
-from handlers.custom_cards import show_card_builder
-from db.db import init_db, SessionLocal, Base
-from db.models import Maintenance
-from sqlalchemy import create_engine
+from handlers.status import status_handler
 
 # Set up logging
 logging.basicConfig(
@@ -28,157 +33,146 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Rate limiting constants
-ONE_MINUTE = 60
-FIVE_MINUTES = 300
-TEN_MINUTES = 600
-
-# Command rate limits (calls per period)
-RATE_LIMITS = {
-    'start': (10, ONE_MINUTE),  # 10 calls per minute
-    'game': (5, FIVE_MINUTES),  # 5 calls per 5 minutes
-    'shop': (20, TEN_MINUTES),  # 20 calls per 10 minutes
-    'default': (30, ONE_MINUTE)  # Default rate limit
-}
-
-# Owner ID
-OWNER_ID = int(os.getenv('ADMIN_ID', '6985505204'))
-
-# Global maintenance mode flag
-MAINTENANCE_MODE = False
-MAINTENANCE_MESSAGE = "The bot is currently in maintenance mode. Please try again later."
-
-# Get environment
-ENV = os.getenv('ENV', 'development').lower()
-
 # Initialize bot
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-if not TOKEN:
+if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
-
-# Set database URL based on environment
-if ENV == 'production':
-    DATABASE_URL = os.getenv('DATABASE_URL')
-    if not DATABASE_URL:
-        logger.warning("No DATABASE_URL found. Using SQLite for development.")
-        DATABASE_URL = 'sqlite:///bingo_bot.db'
-else:
-    DATABASE_URL = 'sqlite:///bingo_bot.db'
-
-# Create engine
-engine = create_engine(DATABASE_URL)
-
-# Create session maker
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create base
-Base = declarative_base()
-
-# Log environment and database settings
-logger.info(f"Starting in {ENV} environment")
-logger.info(f"Using database: {DATABASE_URL}")
 
 # Initialize database
 try:
-    Base.metadata.create_all(bind=engine)
+    init_db()
     logger.info("Database initialized successfully")
 except Exception as e:
     logger.error(f"Database initialization error: {str(e)}")
     if ENV == 'production':
-        raise  # In production, we need database
-    else:
-        logger.warning("Continuing in development mode without database")
+        raise
+
 
 # Create application
-application = Application.builder().token(TOKEN).build()
+application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-# Add handlers with rate limiting
-application.add_handler(CommandHandler("start", rate_limited(*RATE_LIMITS['start'])(start_handler)))
-application.add_handler(CommandHandler("leaderboard", rate_limited(*RATE_LIMITS['default'])(show_leaderboard)))
-application.add_handler(CommandHandler("shop", rate_limited(*RATE_LIMITS['shop'])(show_shop)))
-application.add_handler(CommandHandler("quests", rate_limited(*RATE_LIMITS['default'])(show_quests)))
-application.add_handler(CommandHandler("social", rate_limited(*RATE_LIMITS['default'])(show_social)))
-application.add_handler(CommandHandler("achievements", rate_limited(*RATE_LIMITS['default'])(show_achievements)))
-application.add_handler(CommandHandler("events", rate_limited(*RATE_LIMITS['default'])(show_events)))
-application.add_handler(CommandHandler("analytics", rate_limited(*RATE_LIMITS['default'])(show_analytics)))
-application.add_handler(CommandHandler("card_builder", rate_limited(*RATE_LIMITS['default'])(show_card_builder)))
+# Add command handlers with rate limiting and validation
+command_handlers = {
+    'start': start_handler,
+    'leaderboard': show_leaderboard,
+    'shop': show_shop,
+    'create_room': create_room,
+    'join_room': join_room,
+    'start_game': start_game,
+    'ai_play': ai_play,
+    'status': status_handler
+}
 
-# Add game command handlers
-application.add_handler(CommandHandler("create_room", rate_limited(*RATE_LIMITS['game'])(create_room)))
-application.add_handler(CommandHandler("join_room", rate_limited(*RATE_LIMITS['game'])(join_room)))
-application.add_handler(CommandHandler("start_game", rate_limited(*RATE_LIMITS['game'])(start_game)))
-application.add_handler(CommandHandler("ai_play", rate_limited(*RATE_LIMITS['game'])(ai_play)))
+async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE, handler: callable) -> bool:
+    """Validate command parameters and permissions"""
+    try:
+        if not update.effective_user:
+            logger.warning("Command from user not found")
+            await update.message.reply_text("❌ User not found.")
+            return False
+            
+        if maintenance_check(update, context):
+            logger.info("Command blocked due to maintenance mode")
+            return False
+            
+        if is_user_banned(update.effective_user.id):
+            logger.warning(f"Banned user {update.effective_user.id} attempted command")
+            await update.message.reply_text("❌ You are banned from using this bot.")
+            return False
+            
+        logger.info(f"Validated command from user {update.effective_user.id}")
+        return True
+    except Exception as e:
+        error_logger.error(f"Error in validate_command: {str(e)}", exc_info=True)
+        await update.message.reply_text("❌ An error occurred. Please try again later.")
+        return False
+
+# Add command handlers with rate limiting and validation
+for cmd, handler in command_handlers.items():
+    limit = RATE_LIMITS.get(cmd, RATE_LIMITS['default'])
+    
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            if await validate_command(update, context, handler):
+                return await handler(update, context)
+        except RateLimitExceeded:
+            logger.warning(f"Rate limit exceeded for command {cmd} from user {update.effective_user.id}")
+            await update.message.reply_text("⏳ Please wait a moment before trying again.")
+        except Exception as e:
+            error_logger.error(f"Error handling command {cmd}: {str(e)}", exc_info=True)
+            await update.message.reply_text("❌ An error occurred. Please try again later.")
+    
+    application.add_handler(CommandHandler(cmd, rate_limited(*limit)(wrapper)))
 
 # Add admin handlers
-admin_handler = create_admin_handler()
-application.add_handler(admin_handler)
-
-# Add admin callback handler
-admin_callback_handler = create_admin_callback_handler()
-application.add_handler(admin_callback_handler)
-application.add_handler(CommandHandler("cards", rate_limited(*RATE_LIMITS['default'])(show_card_builder)))
-application.add_handler(CommandHandler("events", rate_limited(*RATE_LIMITS['default'])(show_events)))
-application.add_handler(CommandHandler("achievements", rate_limited(*RATE_LIMITS['default'])(show_achievements)))
-application.add_handler(CommandHandler("social", rate_limited(*RATE_LIMITS['default'])(show_social)))
-application.add_handler(CommandHandler("analytics", rate_limited(*RATE_LIMITS['default'])(show_analytics)))
 application.add_handler(create_admin_handler())
 application.add_handler(create_admin_callback_handler())
 
-# Callback query handlers
-# Callback query handlers
-application.add_handler(CallbackQueryHandler(create_room, pattern="^create_room$"))
-application.add_handler(CallbackQueryHandler(join_room, pattern="^join_room$"))
-application.add_handler(create_admin_callback_handler())
-application.add_handler(CallbackQueryHandler(start_game, pattern="^start_game$"))
-application.add_handler(CallbackQueryHandler(ai_play, pattern="^ai_play$"))
-application.add_handler(CallbackQueryHandler(start_game, pattern="^start_game$"))
-application.add_handler(CallbackQueryHandler(ai_play, pattern="^ai_play$"))
+# Add callback query handlers with validation
+callback_handlers = {
+    'create_room': create_room,
+    'join_room': join_room,
+    'start_game': start_game,
+    'ai_play': ai_play
+}
+
+async def validate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE, handler: callable) -> bool:
+    """Validate callback query permissions"""
+    try:
+        if not update.callback_query:
+            return False
+            
+        if maintenance_check(update, context):
+            return False
+            
+        if is_user_banned(update.callback_query.from_user.id):
+            await update.callback_query.answer("❌ You are banned from using this bot.", show_alert=True)
+            return False
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error in validate_callback: {str(e)}")
+        await update.callback_query.answer("❌ An error occurred. Please try again later.", show_alert=True)
+        return False
+
+# Add callback query handlers with validation
+for action, handler in callback_handlers.items():
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if await validate_callback(update, context, handler):
+            return await handler(update, context)
+    
+    application.add_handler(CallbackQueryHandler(wrapper, pattern=f"^{action}_"))
 
 # Add error handler
-def rate_limited(max_calls: int, period: int):
-    """Decorator for rate limiting commands"""
-    def decorator(func):
-        @wraps(func)
-        @sleep_and_retry
-        @limits(calls=max_calls, period=period)
-        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            try:
-                # Check maintenance mode
-                if await maintenance_check(update, context):
-                    return
-                
-                # Check if user is banned
-                if await is_user_banned(update.effective_user.id):
-                    await update.message.reply_text("You are banned from using this bot.")
-                    return
-                
-                # Validate command
-                if not await validate_command(update, context):
-                    return
-                
-                return await func(update, context)
-            except Exception as e:
-                logger.error(f"Error in {func.__name__}: {str(e)}")
-                await error_handler(update, context)
-        return wrapper
-    return decorator
-
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log the error and send a telegram message to notify the developer."""
-    logger.error(msg="Exception while handling an update:", exc_info=context.error)
-    
+    """Log errors caused by updates."""
     try:
-        # Log to telegram
-        await context.bot.send_message(
-            chat_id=OWNER_ID,
-            text=f"An error occurred:\n{str(context.error)}\n\n"
+        logger.error(f'Update {update} caused error {context.error}')
+        
+        # Handle specific errors
+        if isinstance(context.error, telegram.error.BadRequest):
+            logger.error("Bad request error: %s", str(context.error))
+        elif isinstance(context.error, telegram.error.TimedOut):
+            logger.error("Timeout error: %s", str(context.error))
+        elif isinstance(context.error, telegram.error.NetworkError):
+            logger.error("Network error: %s", str(context.error))
+            
+        # Send error message to admin
+        if OWNER_ID:
+            await context.bot.send_message(
+                chat_id=OWNER_ID,
+                text=f"⚠️ Error in bot:\n\n"
+                     f"Error: {str(context.error)}\n"
+                     f"Update: {str(update)}"
+            )
             f"Update: {update}\n"
-            f"Error: {str(context.error)}\n"
             f"Traceback: {str(context.error.__traceback__)}"
         )
     except Exception as e:
-        logger.error(f"Failed to send error notification to admin: {str(e)}")
+        logger.error(f"Failed to send error notification: {str(e)}")
 
+application.add_error_handler(error_handler)
+
+# Helper functions
 async def maintenance_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Check if bot is in maintenance mode"""
     if MAINTENANCE_MODE:
@@ -188,17 +182,23 @@ async def maintenance_check(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 def is_user_banned(user_id: int) -> bool:
     """Check if user is banned"""
-    return user_id in BANNED_USERS
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        return user and user.banned
 
 def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Validate command parameters and permissions"""
-    if not update.message:
+    if not update.effective_user:
         return False
     
     if maintenance_check(update, context):
         return False
         
     if is_user_banned(update.effective_user.id):
+        await update.message.reply_text("❌ You are banned from using this bot.")
+        return False
+        
+    return True
         update.message.reply_text("You are banned from using this bot.")
         return False
         

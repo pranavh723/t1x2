@@ -15,11 +15,23 @@ class BingoGame:
         self.status = "active"
         
     def generate_card(self) -> List[List[int]]:
-        """Generate a 5x5 bingo card with unique numbers 1-25"""
-        numbers = list(range(1, 26))
-        random.shuffle(numbers)
-        return [numbers[i:i+5] for i in range(0, 25, 5)]
-    
+        """Generate a 5x5 bingo card with unique numbers"""
+        try:
+            numbers = list(range(1, 26))
+            random.shuffle(numbers)
+            
+            # Ensure no duplicate numbers
+            card = [numbers[i:i+5] for i in range(0, 25, 5)]
+            
+            # Validate card
+            if not validate_card(card):
+                raise ValueError("Generated invalid card")
+                
+            return card
+        except Exception as e:
+            logger.error(f"Error generating card: {str(e)}")
+            return None
+
     def initialize_game(self):
         """Initialize game by generating cards for all players"""
         for player in self.players:
@@ -27,60 +39,113 @@ class BingoGame:
             self.cards[player] = card
             self.marked[player] = [[False]*5 for _ in range(5)]
     
-    def call_number(self) -> int:
-        """Call a random number that hasn't been called yet"""
-        available_numbers = set(range(1, 26)) - set(self.numbers_drawn)
-        if not available_numbers:
+    async def call_number(self) -> int:
+        """Call a new number for the game with validation"""
+        try:
+            if not self.numbers_drawn:
+                self.numbers_drawn = []
+                
+            available_numbers = list(range(1, 26))
+            available_numbers = [num for num in available_numbers if num not in self.numbers_drawn]
+            
+            if not available_numbers:
+                logger.info("All numbers have been called")
+                return None
+                
+            # Add delay for better UX
+            await asyncio.sleep(1)
+            
+            number = random.choice(available_numbers)
+            self.numbers_drawn.append(number)
+            self.current_number = number
+            return number
+        except Exception as e:
+            logger.error(f"Error calling number: {str(e)}")
             return None
-        
-        self.current_number = random.choice(list(available_numbers))
-        self.numbers_drawn.append(self.current_number)
-        return self.current_number
     
     def mark_number(self, player_id: int, number: int) -> bool:
-        """Mark a number on a player's card if it exists"""
-        if player_id not in self.cards:
+        """Mark a number on the card with validation"""
+        try:
+            card = self.cards[player_id]
+            marked = self.marked[player_id]
+            
+            if not validate_card(card):
+                return False
+                
+            if number not in range(1, 26):
+                return False
+                
+            # Check if number is on card
+            for i, row in enumerate(card):
+                if number in row:
+                    # Check if already marked
+                    if not marked[i][row.index(number)]:
+                        marked[i][row.index(number)] = True
+                        return True
+                    return False
+            
+            return False
+        except Exception as e:
+            logger.error(f"Error marking number: {str(e)}")
             return False
         
-        card = self.cards[player_id]
-        marked = self.marked[player_id]
-        
-        for i, row in enumerate(card):
-            for j, num in enumerate(row):
-                if num == number:
-                    marked[i][j] = True
-                    return True
-        return False
-    
     def check_bingo(self, player_id: int) -> bool:
         """Check if a player has bingo"""
         if player_id not in self.marked:
             return False
         
+        card = self.cards[player_id]
         marked = self.marked[player_id]
         
+        return check_bingo(card, marked)
+
+def validate_card(card: List[List[int]]) -> bool:
+    """Validate a bingo card"""
+    try:
+        # Check dimensions
+        if len(card) != 5:
+            return False
+            
+        for row in card:
+            if len(row) != 5:
+                return False
+                
+        # Check for duplicates
+        all_numbers = [num for row in card for num in row]
+        if len(set(all_numbers)) != len(all_numbers):
+            return False
+            
+        # Check number range
+        if not all(1 <= num <= 25 for num in all_numbers):
+            return False
+            
+        return True
+    except Exception:
+        return False
+
+def check_bingo(card: List[List[int]], marked: List[List[bool]]) -> bool:
+    """Check if a player has bingo with validation"""
+    try:
         # Check rows
         for row in marked:
             if all(row):
                 return True
-        
+                
         # Check columns
         for col in range(5):
             if all(marked[row][col] for row in range(5)):
                 return True
-        
+                
         # Check diagonals
         if all(marked[i][i] for i in range(5)):
             return True
         if all(marked[i][4-i] for i in range(5)):
             return True
-        
+            
         return False
-    
-    def get_card_state(self, player_id: int) -> List[List[Tuple[int, bool]]]:
-        """Get player's card with marked/unmarked state"""
-        if player_id not in self.cards:
-            return []
+    except Exception as e:
+        logger.error(f"Error checking bingo: {str(e)}")
+        return False
         
         card = self.cards[player_id]
         marked = self.marked[player_id]

@@ -1,9 +1,20 @@
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from datetime import datetime
+import random
+import string
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
-from db.models import Room, Game, User
+
+from db.models import Room, Game, User, RoomStatus
 from db.db import SessionLocal
-import random
-from datetime import datetime
+from utils.constants import ROOM_SIZE_LIMIT, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, EMOJIS
+from handlers.start import is_user_banned
+from handlers.room import room_management
+from utils.error_handler import error_handler
+from ratelimit import sleep_and_retry, limits
+from functools import wraps
 
 # Game keyboard layout
 def create_game_keyboard():
@@ -11,75 +22,264 @@ def create_game_keyboard():
         [InlineKeyboardButton("Join Game", callback_data="join_game")]
     ])
 
+@error_handler.rate_limited(limit=(2, 30))
 async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Create a new game room"""
-    user = update.effective_user
-    
-    # Create database session
-    db = SessionLocal()
+    """Create a new game room with validation and logging"""
     try:
-        # Create new room
-        room = Room(
-            room_code=f"ROOM_{random.randint(10000, 99999)}",
-            owner_id=user.id,
-            name=f"Room by {user.first_name}",
-            status=RoomStatus.WAITING
-        )
-        db.add(room)
-        db.commit()
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        game_logger.info(f"User {user_id} attempting to create room in chat {chat_id}")
         
+        # Validate update
+        if not update.effective_user:
+            raise InvalidUserError("User not found")
+            
+        # Validate chat type
+        if update.effective_chat.type != 'group':
+            raise InvalidChatTypeError("This command can only be used in a group chat")
+            
+        # Check maintenance mode
+        if MAINTENANCE_MODE:
+            game_logger.info(f"Room creation blocked for user {user_id} due to maintenance mode")
+            raise MaintenanceModeError("Bot is currently in maintenance mode")
+            
+        # Check if user is banned
+        if is_user_banned(user_id):
+            game_logger.warning(f"Banned user {user_id} attempted to create room")
+            raise BannedUserError("You are banned from using this bot")
+            
+        # Check if user has active room
+        db = SessionLocal()
+        try:
+            active_room = db.query(Room).filter(
+                Room.host_id == user_id,
+                Room.status != RoomStatus.FINISHED
+            ).first()
+            if active_room:
+                game_logger.info(f"User {user_id} already has active room {active_room.room_code}")
+                raise AlreadyJoinedError(f"You already have an active room: {active_room.room_code}")
+                
+            # Validate room count for user
+            user_rooms = db.query(Room).filter(
+                Room.host_id == user_id,
+                Room.status == RoomStatus.FINISHED
+            ).count()
+            if user_rooms >= MAX_ROOMS_PER_USER:
+                raise RoomLimitExceededError(f"You've reached the maximum number of rooms ({MAX_ROOMS_PER_USER})")
+                
+            # Validate chat room count
+            chat_rooms = db.query(Room).filter(
+                Room.chat_id == chat_id,
+                Room.status != RoomStatus.FINISHED
+            ).count()
+            if chat_rooms >= MAX_ROOMS_PER_CHAT:
+                raise RoomLimitExceededError(f"This chat has reached the maximum number of rooms ({MAX_ROOMS_PER_CHAT})")
+                
+        finally:
+            db.close()
+            
+        # Create room
+        room = room_management.create_room(
+            host_id=user_id,
+            chat_id=chat_id,
+            is_private=False,
+            max_players=ROOM_SIZE_LIMIT
+        )
+        
+        if not room:
+            raise RoomCreationError("Failed to create room")
+            
+        game_logger.info(f"Room {room.room_code} created by user {user_id} in chat {chat_id}")
+        
+        # Create keyboard with room info
         keyboard = [
-            [InlineKeyboardButton("Join Game", callback_data=f"join_game_{room.id}")]
+            [InlineKeyboardButton("Join Game", callback_data=f"join_room_{room.room_code}")],
+            [InlineKeyboardButton("Start Game", callback_data=f"start_game_{room.room_code}")],
+            [InlineKeyboardButton("Share Room", switch_inline_query=f"room_{room.room_code}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
+        # Send group message
         await update.message.reply_text(
-            f"Created a new game room!\n"
-            f"Room Code: {room.room_code}\n"
-            "Waiting for players to join...",
+            f"🎲 Room Created: {room.room_code}\n"
+            f"Players Joined: 1/{room.max_players}\n\n"
+            "Tap 'Join Game' to invite friends!\n"
+            "Use 'Share Room' to send invite link.",
             reply_markup=reply_markup
         )
+        
+        # Send private message with instructions
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="You've created a room!\n"
+                 "Players will receive their cards in private messages.\n"
+                 "Use the buttons in group chat to manage the game.\n"
+                 f"Room Code: {room.room_code}",
+            reply_markup=reply_markup
+        )
+        
+        game_logger.info(f"Room {room.room_code} creation completed successfully")
+        
+    except RateLimitExceeded as e:
+        game_logger.warning(f"Rate limit exceeded for create_room by user {user_id}")
+        raise
+    except InvalidGameState as e:
+        game_logger.error(f"Invalid game state for user {user_id}: {str(e)}")
+        raise
+    except InvalidRoomState as e:
+        game_logger.error(f"Invalid room state for user {user_id}: {str(e)}")
+        raise
+    except InvalidUserState as e:
+        game_logger.error(f"Invalid user state for user {user_id}: {str(e)}")
+        raise
+    except Exception as e:
+        game_logger.error(f"Error in create_room for user {user_id}: {str(e)}", exc_info=True)
+        await error_handler.handle_error(update, e)
+    finally:
+        db.close() if db else None
     finally:
         db.close()
 
+@error_handler.rate_limited(limit=(5, 60))
 async def join_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Join an existing game room"""
-    query = update.callback_query
-    room_id = int(query.data.split('_')[1])
-    
-    # Create database session
-    db = SessionLocal()
+    """Handle joining a room with validation and logging"""
     try:
-        room = db.query(Room).filter(Room.id == room_id).first()
-        if not room:
-            await query.answer("Room not found!", show_alert=True)
-            return
-            
-        if room.status != RoomStatus.WAITING:
-            await query.answer("Game has already started!", show_alert=True)
-            return
-            
-        # Add player to room
-        room.players.append(query.from_user.id)
-        db.commit()
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        game_logger.info(f"User {user_id} attempting to join room in chat {chat_id}")
         
-        await query.answer()
+        # Validate update
+        if not update.callback_query:
+            raise InvalidCommandError("Invalid callback query")
+            
+        query = update.callback_query
+        
+        # Extract room code
+        try:
+            room_code = query.data.split('_')[2]
+            if not room_code.startswith('#ROOM_'):
+                raise InvalidRoomCodeError("Invalid room code format")
+        except (IndexError, ValueError) as e:
+            game_logger.warning(f"Invalid room code format for user {user_id}")
+            await query.answer("❌ Invalid room code", show_alert=True)
+            raise
+            
+        # Validate room code length
+        if len(room_code) != ROOM_CODE_LENGTH:
+            raise InvalidRoomCodeError(f"Room code must be {ROOM_CODE_LENGTH} characters long")
+            
+        # Check maintenance mode
+        if MAINTENANCE_MODE:
+            game_logger.info(f"Room join blocked for user {user_id} due to maintenance mode")
+            raise MaintenanceModeError("Bot is currently in maintenance mode")
+            
+        # Check if user is banned
+        if is_user_banned(user_id):
+            game_logger.warning(f"Banned user {user_id} attempted to join room")
+            raise BannedUserError("You are banned from using this bot")
+            
+        # Validate user status
+        db = SessionLocal()
+        try:
+            # Check if user already has active game
+            active_game = db.query(Game).filter(
+                Game.player_id == user_id,
+                Game.status != GameStatus.FINISHED
+            ).first()
+            if active_game:
+                raise AlreadyInGameError(f"You already have an active game: {active_game.room_code}")
+                
+            # Check if user has reached game limit
+            user_games = db.query(Game).filter(
+                Game.player_id == user_id,
+                Game.status == GameStatus.FINISHED
+            ).count()
+            if user_games >= MAX_GAMES_PER_USER:
+                raise GameLimitExceededError(f"You've reached the maximum number of games ({MAX_GAMES_PER_USER})")
+                
+        finally:
+            db.close()
+            
+        # Join room
+        room = room_management.join_room(room_code, user_id)
+        if not room:
+            game_logger.error(f"Failed to join room {room_code} for user {user_id}")
+            raise RoomNotFoundError(f"Room {room_code} not found")
+            
+        # Validate room status
+        if room.status != RoomStatus.ACTIVE:
+            raise InvalidRoomState(f"Room is in invalid state: {room.status}")
+            
+        # Validate player count
+        if len(room.members) >= room.max_players:
+            raise RoomFullError(f"Room {room_code} is full")
+            
+        game_logger.info(f"User {user_id} joined room {room_code} in chat {chat_id}")
+        
+        # Update group message
+        keyboard = [
+            [InlineKeyboardButton("Join Game", callback_data=f"join_room_{room_code}")],
+            [InlineKeyboardButton("Start Game", callback_data=f"start_game_{room_code}")],
+            [InlineKeyboardButton("Share Room", switch_inline_query=f"room_{room_code}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await query.edit_message_text(
-            f"{query.from_user.first_name} has joined the game!\n"
-            f"Players in room: {len(room.players)}"
+            f"🎲 Room Code: {room_code}\n"
+            f"Players Joined: {len(room.members)}/{room.max_players}\n\n"
+            "Tap 'Join Game' to enter!\n"
+            "Use 'Share Room' to invite more friends.",
+            reply_markup=reply_markup
         )
+        
+        # Send private message with card
+        card = room_management.generate_bingo_card()
+        if not card:
+            game_logger.error(f"Failed to generate card for user {user_id}")
+            raise CardGenerationError("Failed to generate bingo card")
+            
+        # Validate card
+        if not validate_bingo_card(card):
+            raise InvalidCardError("Generated card is invalid")
+            
+        card_keyboard = create_card_keyboard(card)
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="Welcome to the game!\n"
+                 "Your scorecard is ready.\n"
+                 "Wait for the host to start the game.",
+            reply_markup=card_keyboard
+        )
+        
+        game_logger.info(f"User {user_id} received valid card for room {room_code}")
+        
+    except RateLimitExceeded as e:
+        game_logger.warning(f"Rate limit exceeded for join_room by user {user_id}")
+        raise
+    except InvalidGameState as e:
+        game_logger.error(f"Invalid game state for user {user_id}: {str(e)}")
+        raise
+    except InvalidRoomState as e:
+        game_logger.error(f"Invalid room state for user {user_id}: {str(e)}")
+        raise
+    except InvalidUserState as e:
+        game_logger.error(f"Invalid user state for user {user_id}: {str(e)}")
+        raise
+    except Exception as e:
+        game_logger.error(f"Error in join_room for user {user_id}: {str(e)}", exc_info=True)
+        await error_handler.handle_error(update, e)
     finally:
-        db.close()
+        db.close() if db else None
 
 async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Start the game"""
     query = update.callback_query
-    room_id = int(query.data.split('_')[1])
+    room_code = query.data.split('_')[2]
     
     # Create database session
     db = SessionLocal()
     try:
-        room = db.query(Room).filter(Room.id == room_id).first()
+        room = db.query(Room).filter(Room.room_code == room_code).first()
         if not room:
             await query.answer("Room not found!", show_alert=True)
             return
@@ -127,29 +327,40 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     finally:
         db.close()
 
-async def generate_card() -> list:
+async def generate_card() -> dict:
     """Generate a random bingo card"""
-    numbers = []
-    for i in range(5):
-        # Generate numbers for each column
-        start = i * 15 + 1
-        end = (i + 1) * 15
-        column = random.sample(range(start, end + 1), 5)
-        numbers.extend(column)
-    
-    # Shuffle the numbers
-    random.shuffle(numbers)
-    return numbers
+    try:
+        numbers = []
+        for i in range(5):
+            # Generate numbers for each column
+            start = i * 15 + 1
+            end = (i + 1) * 15
+            column = random.sample(range(start, end + 1), 5)
+            numbers.extend(column)
+        
+        # Shuffle the numbers
+        random.shuffle(numbers)
+        
+        # Create card data structure
+        card_data = {
+            'numbers': numbers,
+            'marked': [False] * 25,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        return card_data
+    except Exception as e:
+        logger.error(f"Error generating card: {str(e)}")
+        raise
 
 async def ai_play(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle AI moves in the game"""
     query = update.callback_query
-    room_id = int(query.data.split('_')[1])
+    room_code = query.data.split('_')[2]
     
     # Create database session
     db = SessionLocal()
     try:
-        game = db.query(Game).filter(Game.room_id == room_id).first()
+        game = db.query(Game).filter(Game.room_code == room_code).first()
         if not game:
             await query.answer("Game not found!", show_alert=True)
             return

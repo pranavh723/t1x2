@@ -1,6 +1,6 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
-from config import OWNER_ID
+from config import OWNER_ID, ADMIN_ID
 from db.db import SessionLocal
 from db.models import User, Room, Game, Maintenance
 import logging
@@ -10,14 +10,21 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Admin commands
+ADMIN_COMMANDS = {
+    'stats': '📊 Show bot statistics',
+    'maintenance': '🔧 Toggle maintenance mode',
+    'ban': '🔒 Ban a user',
+    'unban': '🔓 Unban a user',
+    'broadcast': '📢 Broadcast message',
+    'reset': '🔄 Reset user data'
+}
+
 async def create_admin_keyboard():
     """Create admin menu keyboard"""
-    keyboard = [
-        [InlineKeyboardButton("📊 Stats", callback_data="admin_stats")],
-        [InlineKeyboardButton("🔧 Maintenance", callback_data="admin_maintenance")],
-        [InlineKeyboardButton("🔒 Ban User", callback_data="admin_ban")],
-        [InlineKeyboardButton("🔓 Unban User", callback_data="admin_unban")]
-    ]
+    keyboard = []
+    for cmd, desc in ADMIN_COMMANDS.items():
+        keyboard.append([InlineKeyboardButton(desc, callback_data=f"admin_{cmd}")])
     return InlineKeyboardMarkup(keyboard)
 
 def create_admin_handler():
@@ -30,7 +37,8 @@ def create_admin_callback_handler():
 
 async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show admin menu"""
-    if update.effective_user.id != OWNER_ID:
+    user_id = update.effective_user.id
+    if user_id not in [OWNER_ID, ADMIN_ID]:
         await update.message.reply_text("You are not authorized to use this command.")
         return
 
@@ -40,17 +48,26 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle admin menu callbacks"""
     query = update.callback_query
+    if query.from_user.id not in [OWNER_ID, ADMIN_ID]:
+        await query.answer("Unauthorized!", show_alert=True)
+        return
+
     await query.answer()
 
     try:
-        if query.data == "admin_maintenance":
+        action = query.data.split('_')[1]
+        if action == "maintenance":
             await toggle_maintenance(query)
-        elif query.data == "admin_stats":
+        elif action == "stats":
             await show_stats(query)
-        elif query.data == "admin_ban":
+        elif action == "ban":
             await ban_user(query)
-        elif query.data == "admin_unban":
+        elif action == "unban":
             await unban_user(query)
+        elif action == "broadcast":
+            await broadcast_message(query)
+        elif action == "reset":
+            await reset_user(query)
     except Exception as e:
         logger.error(f"Error handling admin callback: {str(e)}")
         await query.message.reply_text("An error occurred while processing your request.")
@@ -63,42 +80,83 @@ async def toggle_maintenance(query: Update) -> None:
             if not maintenance:
                 maintenance = Maintenance()
                 db.add(maintenance)
+            
             maintenance.enabled = not maintenance.enabled
+            maintenance.updated_at = datetime.utcnow()
+            maintenance.message = "Bot maintenance is in progress. Please try again later."
             db.commit()
 
         if maintenance.enabled:
-            await query.message.reply_text("Maintenance mode enabled.")
+            await query.message.reply_text("✅ Maintenance mode enabled.")
         else:
-            await query.message.reply_text("Maintenance mode disabled.")
+            await query.message.reply_text("✅ Maintenance mode disabled.")
     except Exception as e:
         logger.error(f"Error toggling maintenance mode: {str(e)}")
-        await query.message.reply_text("Failed to toggle maintenance mode.")
+        await query.message.reply_text("❌ Failed to toggle maintenance mode.")
 
 async def show_stats(query: Update) -> None:
     """Show bot statistics"""
     try:
         with SessionLocal() as db:
             user_count = db.query(User).count()
+            active_users = db.query(User).filter(User.last_seen > datetime.utcnow() - timedelta(days=7)).count()
             room_count = db.query(Room).count()
             game_count = db.query(Game).count()
+            
+            # Get top players by XP
+            top_players = db.query(User).order_by(User.xp.desc()).limit(5).all()
+            
+            stats = f"""
+📊 Bot Statistics:
 
-        stats = f"""
-Bot Statistics:
-Users: {user_count}
-Rooms: {room_count}
-Games: {game_count}
+👥 Users:
+• Total: {user_count}
+• Active (7d): {active_users}
+
+🎮 Games:
+• Total Rooms: {room_count}
+• Total Games: {game_count}
+
+🏆 Top Players:
 """
+            
+            for i, player in enumerate(top_players, 1):
+                stats += f"\n{i}. {player.first_name} ({player.xp} XP)"
+                
         await query.message.reply_text(stats)
     except Exception as e:
         logger.error(f"Error fetching stats: {str(e)}")
-        await query.message.reply_text("Failed to fetch statistics.")
+        await query.message.reply_text("❌ Failed to fetch statistics.")
 
 async def ban_user(query: Update) -> None:
     """Ban a user"""
     try:
-        await query.message.reply_text("Please provide the user ID to ban.")
+        await query.message.reply_text("Please provide the user ID to ban:")
+        
+        # Wait for user input
+        response = await query.message.bot.wait_for(
+            "message",
+            timeout=30,
+            check=lambda m: m.from_user.id == query.from_user.id
+        )
+        
+        user_id = int(response.text)
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.telegram_id == user_id).first()
+            if not user:
+                await query.message.reply_text("❌ User not found!")
+                return
+                
+            user.banned = True
+            user.ban_reason = "Banned by admin"
+            db.commit()
+            
+        await query.message.reply_text(f"✅ User {user_id} has been banned.")
+    except ValueError:
+        await query.message.reply_text("❌ Invalid user ID.")
     except Exception as e:
         logger.error(f"Error in ban_user: {str(e)}")
+        await query.message.reply_text("❌ Failed to ban user.")
         await query.message.reply_text("An error occurred.")
 
 async def unban_user(query: Update) -> None:
