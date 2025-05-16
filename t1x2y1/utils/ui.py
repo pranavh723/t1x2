@@ -100,6 +100,25 @@ def create_events_keyboard(events: list) -> InlineKeyboardMarkup:
     
     return InlineKeyboardMarkup(keyboard)
 
+def create_achievements_keyboard(achievements: list) -> InlineKeyboardMarkup:
+    """Create keyboard for achievements"""
+    keyboard = []
+    
+    # Add achievements
+    for achievement in achievements:
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{achievement['name']} - {achievement['progress']}/{achievement['target']}",
+                callback_data=f"achievement_{achievement['id']}")
+        ])
+    
+    # Add back button
+    keyboard.append([
+        InlineKeyboardButton("Back to Menu", callback_data="main_menu")
+    ])
+    
+    return InlineKeyboardMarkup(keyboard)
+
 def create_bingo_card_keyboard(card_data):
     """Create a 5x5 bingo card keyboard"""
     keyboard = []
