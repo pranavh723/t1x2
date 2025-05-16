@@ -1,5 +1,5 @@
 import os
-from dotenv import load_dotenv
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 from telegram.error import TelegramError
@@ -36,20 +36,22 @@ RATE_LIMITS = {
 }
 
 # Owner ID
-OWNER_ID = 69855055204
+OWNER_ID = int(os.getenv('ADMIN_ID', '6985505204'))
 
 # Global maintenance mode flag
 MAINTENANCE_MODE = False
 MAINTENANCE_MESSAGE = "The bot is currently in maintenance mode. Please try again later."
 
 # Load environment variables
-load_dotenv()
+
 
 # Get environment
 ENV = os.getenv('ENV', 'development').lower()
 
 # Initialize bot
-TOKEN = "7662693814:AAHZ7i7YKwpWvmpAWceo1e05pilDcYbpXEE"
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+if not TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
 # Set database URL based on environment
 if ENV == 'production':
