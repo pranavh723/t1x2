@@ -13,6 +13,10 @@ from handlers.achievements import show_achievements
 from handlers.events import show_events
 from handlers.analytics import show_analytics
 from handlers.admin import create_admin_handler, create_admin_callback_handler
+from handlers.leaderboard import show_leaderboard
+from handlers.shop import show_shop
+from handlers.quests import show_quests
+from handlers.cards import show_card_builder
 from db.db import init_db
 
 # Set up logging
@@ -79,9 +83,6 @@ except Exception as e:
 
 # Create application
 application = Application.builder().token(TOKEN).build()
-
-# Initialize database
-init_db()
 
 # Add handlers with rate limiting
 application.add_handler(CommandHandler("start", rate_limited(*RATE_LIMITS['start'])(start_handler)))
