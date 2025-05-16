@@ -18,6 +18,7 @@ from handlers.shop import show_shop
 from handlers.quests import show_quests
 from handlers.custom_cards import show_card_builder
 from db.db import init_db, SessionLocal, Base
+from db.models import Maintenance
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, scoped_session
 from sqlalchemy.orm.session import sessionmaker
