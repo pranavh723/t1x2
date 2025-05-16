@@ -15,6 +15,27 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         start_logger.info(f"Start command received from user {update.effective_user.id}")
         user = update.effective_user
         
+        # Create database session
+        db = SessionLocal()
+        try:
+            # Check if user exists, if not create new user
+            db_user = db.query(User).filter(User.telegram_id == user.id).first()
+            if not db_user:
+                new_user = User(
+                    telegram_id=user.id,
+                    username=user.username,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    xp=0,
+                    coins=100,  # Initial coins
+                    streak=0
+                )
+                db.add(new_user)
+                db.commit()
+                start_logger.info(f"Created new user: {user.id}")
+        finally:
+            db.close()
+        
         # Check maintenance mode
         if MAINTENANCE_MODE:
             await update.message.reply_text(MAINTENANCE_MESSAGE)
@@ -25,11 +46,15 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text("❌ You are banned from using this bot.")
             return
             
-        # Simple keyboard with only essential buttons
+        # Create main menu keyboard with all functional buttons
         keyboard = [
             [
-                InlineKeyboardButton("🎮 Play Bingo", callback_data="play_bingo"),
-                InlineKeyboardButton("👤 My Profile", callback_data="profile")
+                InlineKeyboardButton("🎮 Create Room", callback_data="create_room"),
+                InlineKeyboardButton("🌟 Join Room", callback_data="join_room")
+            ],
+            [
+                InlineKeyboardButton("👤 Profile", callback_data="profile"),
+                InlineKeyboardButton("🏆 Leaderboard", callback_data="leaderboard")
             ],
             [
                 InlineKeyboardButton(
@@ -40,16 +65,15 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        # Send welcome message with simplified keyboard
+        # Send welcome message with full keyboard
         await update.message.reply_text(
             f"Welcome to Bingo Bot, {user.first_name}!\n\n"
-            "This bot lets you play Bingo with friends in group chats.\n\n"
-            "To start playing:\n"
+            "Play Bingo with friends in group chats!\n\n"
+            "🎮 To play:\n"
             "1. Add the bot to a group\n"
-            "2. Use /create_room command in the group\n"
+            "2. Use buttons below or /create_room command\n"
             "3. Invite friends to join\n"
-            "4. Start the game and have fun!\n\n"
-            "Use the buttons below to navigate:",
+            "4. Start the game and have fun!",
             reply_markup=reply_markup
         )
     except Exception as e:

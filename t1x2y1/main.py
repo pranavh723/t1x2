@@ -1,9 +1,14 @@
 import os
 import logging
+import random
+import string
+from datetime import datetime
 from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram.error import BadRequest, TimedOut, NetworkError
+from db.models import User, Room, Game, Player
+from db.database import SessionLocal
 from dotenv import load_dotenv
 from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
 from utils.rate_limit import rate_limited
@@ -114,26 +119,208 @@ logger.info("Registering command handlers...")
 application.add_handler(CommandHandler("start", start_handler))
 application.add_handler(CommandHandler("help", start_handler)) # Replaced help_handler with start_handler
 
-# Simplified handler for all other commands
-async def not_implemented_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Temporary handler for commands not yet implemented"""
-    command = update.message.text.split()[0].replace('/', '')
-    await update.message.reply_text(
-        f"The /{command} command is coming soon!\n\n"
-        "Please use /start to see available features."
-    )
-    logger.info(f"User {update.effective_user.id} attempted to use /{command} command")
+# Implement fully functional command handlers
 
-# Register other commands with the temporary handler
-application.add_handler(CommandHandler("create_room", not_implemented_handler))
-application.add_handler(CommandHandler("join", not_implemented_handler))
-application.add_handler(CommandHandler("start_game", not_implemented_handler))
-application.add_handler(CommandHandler("profile", not_implemented_handler))
-application.add_handler(CommandHandler("stats", not_implemented_handler))
-application.add_handler(CommandHandler("leaderboard", not_implemented_handler))
-application.add_handler(CommandHandler("shop", not_implemented_handler))
-application.add_handler(CommandHandler("ai_play", not_implemented_handler))
-application.add_handler(CommandHandler("status", not_implemented_handler))
+# Create room command handler
+async def create_room_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Create a new bingo room"""
+    try:
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        logger.info(f"Create room command from user {user_id} in chat {chat_id}")
+        
+        # Check if this is a private chat
+        if update.effective_chat.type == 'private':
+            # Send instructions for adding to group
+            await update.message.reply_text(
+                "🎮 To create a Bingo room:\n\n"
+                "1. Add this bot to a group chat\n"
+                "2. Use /create_room command in the group\n\n"
+                "Use the Add to Group button to add the bot to your group!"
+            )
+            return
+        
+        # This is a group chat, create the room
+        # Create a random room code
+        room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        # Create database session
+        db = SessionLocal()
+        try:
+            # Check if user already has an active room
+            existing_room = db.query(Room).filter(
+                Room.host_id == user_id,
+                Room.status != 'FINISHED'
+            ).first()
+            
+            if existing_room:
+                await update.message.reply_text(
+                    f"⚠️ You already have an active room: {existing_room.room_code}\n"
+                    f"Please finish or cancel that game first."
+                )
+                return
+            
+            # Create new room in database
+            new_room = Room(
+                room_code=room_code,
+                host_id=user_id,
+                chat_id=chat_id,
+                status='WAITING',
+                created_at=datetime.now()
+            )
+            db.add(new_room)
+            db.commit()
+            
+            # Send success message
+            await update.message.reply_text(
+                f"🎮 Room created successfully!\n\n"
+                f"Room code: {room_code}\n\n"
+                f"Share this code with friends to join!\n"
+                f"Use /start_game to begin when everyone has joined."
+            )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error in create_room_command: {str(e)}")
+        await update.message.reply_text("❌ An error occurred. Please try again.")
+
+# Join room command handler
+async def join_room_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Join an existing bingo room"""
+    try:
+        user_id = update.effective_user.id
+        logger.info(f"Join room command from user {user_id}")
+        
+        # Check if room code was provided
+        if len(context.args) < 1:
+            await update.message.reply_text(
+                "🌟 Please provide a room code.\n\n"
+                "Example: /join ABC123"
+            )
+            return
+        
+        # Get room code from arguments
+        room_code = context.args[0].upper()
+        
+        # Create database session
+        db = SessionLocal()
+        try:
+            # Find room with this code
+            room = db.query(Room).filter(
+                Room.room_code == room_code,
+                Room.status == 'WAITING'
+            ).first()
+            
+            if not room:
+                await update.message.reply_text(
+                    f"❌ Room {room_code} not found or already started.\n"
+                    f"Please check the code and try again."
+                )
+                return
+            
+            # Check if user is already in this room
+            existing_player = db.query(Player).filter(
+                Player.user_id == user_id,
+                Player.room_id == room.id
+            ).first()
+            
+            if existing_player:
+                await update.message.reply_text(
+                    f"✅ You are already in room {room_code}!\n"
+                    f"Waiting for the host to start the game."
+                )
+                return
+            
+            # Add user to room as player
+            new_player = Player(
+                user_id=user_id,
+                room_id=room.id,
+                joined_at=datetime.now()
+            )
+            db.add(new_player)
+            db.commit()
+            
+            # Send success message
+            await update.message.reply_text(
+                f"✅ Successfully joined room {room_code}!\n"
+                f"Waiting for the host to start the game."
+            )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error in join_room_command: {str(e)}")
+        await update.message.reply_text("❌ An error occurred. Please try again.")
+
+# Profile command handler
+async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show user profile"""
+    try:
+        user_id = update.effective_user.id
+        logger.info(f"Profile command from user {user_id}")
+        
+        # Create database session
+        db = SessionLocal()
+        try:
+            # Get user from database
+            user = db.query(User).filter(User.telegram_id == user_id).first()
+            
+            if user:
+                # Format user stats
+                await update.message.reply_text(
+                    f"👤 Your Profile:\n\n"
+                    f"Username: {update.effective_user.username or 'Not set'}\n"
+                    f"Games played: {user.games_played or 0}\n"
+                    f"Wins: {user.wins or 0}\n"
+                    f"XP: {user.xp or 0}\n"
+                    f"Coins: {user.coins or 0}\n"
+                    f"Streak: {user.streak or 0} days"
+                )
+            else:
+                # User not found in database
+                await update.message.reply_text(
+                    "👤 Your Profile:\n\n"
+                    "You don't have a profile yet. Play a game to create one!"
+                )
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error in profile_command: {str(e)}")
+        await update.message.reply_text("❌ An error occurred. Please try again.")
+
+# Leaderboard command handler
+async def leaderboard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show global leaderboard"""
+    try:
+        user_id = update.effective_user.id
+        logger.info(f"Leaderboard command from user {user_id}")
+        
+        # Create database session
+        db = SessionLocal()
+        try:
+            # Get top 10 users by XP
+            top_users = db.query(User).order_by(User.xp.desc()).limit(10).all()
+            
+            if top_users:
+                # Format leaderboard
+                leaderboard_text = "🏆 Global Leaderboard:\n\n"
+                for i, user in enumerate(top_users):
+                    leaderboard_text += f"{i+1}. {user.username or user.first_name}: {user.xp} XP\n"
+                
+                await update.message.reply_text(leaderboard_text)
+            else:
+                # No users found
+                await update.message.reply_text("🏆 Leaderboard is empty. Be the first to play!")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error in leaderboard_command: {str(e)}")
+        await update.message.reply_text("❌ An error occurred. Please try again.")
+
+# Register command handlers
+application.add_handler(CommandHandler("create_room", create_room_command))
+application.add_handler(CommandHandler("join", join_room_command))
+application.add_handler(CommandHandler("profile", profile_command))
+application.add_handler(CommandHandler("leaderboard", leaderboard_command))
 
 # Add admin handlers
 application.add_handler(create_admin_handler())
@@ -151,24 +338,117 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     logger.info(f"Button pressed: {query.data} by user {query.from_user.id}")
     
     try:
-        if query.data == 'play_bingo':
+        user_id = query.from_user.id
+        chat_id = query.message.chat.id
+        
+        # Handle create room button
+        if query.data == 'create_room':
+            # Check if this is a private chat
+            if query.message.chat.type == 'private':
+                # Send instructions for adding to group
+                await query.message.reply_text(
+                    "🎮 To create a Bingo room:\n\n"
+                    "1. Add this bot to a group chat\n"
+                    "2. Use /create_room command in the group\n"
+                    "3. Or use the Create Room button in the group\n\n"
+                    "Click the Add to Group button to add the bot to your group!"
+                )
+            else:
+                # This is a group chat, create the room
+                try:
+                    # Create a random room code
+                    room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                    
+                    # Create database session
+                    db = SessionLocal()
+                    try:
+                        # Create new room in database
+                        new_room = Room(
+                            room_code=room_code,
+                            host_id=user_id,
+                            chat_id=chat_id,
+                            status='WAITING',
+                            created_at=datetime.now()
+                        )
+                        db.add(new_room)
+                        db.commit()
+                        
+                        # Send success message
+                        await query.message.reply_text(
+                            f"🎮 Room created successfully!\n\n"
+                            f"Room code: {room_code}\n\n"
+                            f"Share this code with friends to join!\n"
+                            f"Use /start_game to begin when everyone has joined."
+                        )
+                    finally:
+                        db.close()
+                except Exception as e:
+                    logger.error(f"Error creating room: {str(e)}")
+                    await query.message.reply_text("❌ Failed to create room. Please try again.")
+        
+        # Handle join room button
+        elif query.data == 'join_room':
+            # Create custom keyboard for room code entry
             await query.message.reply_text(
-                "🎮 To play Bingo:\n\n"
-                "1. Add this bot to a group chat\n"
-                "2. Use /create_room command in the group\n"
-                "3. Invite friends to join\n"
-                "4. Start the game and have fun!"
+                "🌟 To join a room, send the room code.\n\n"
+                "Example: /join ABC123"
             )
+        
+        # Handle profile button
         elif query.data == 'profile':
-            await query.message.reply_text(
-                "👤 Your Profile:\n\n"
-                "Username: " + (query.from_user.username or "Not set") + "\n"
-                "Games played: 0\n"
-                "Wins: 0\n"
-                "Profile features coming soon!"
-            )
+            # Create database session
+            db = SessionLocal()
+            try:
+                # Get user from database
+                user = db.query(User).filter(User.telegram_id == user_id).first()
+                if user:
+                    # Format user stats
+                    await query.message.reply_text(
+                        f"👤 Your Profile:\n\n"
+                        f"Username: {query.from_user.username or 'Not set'}\n"
+                        f"Games played: {user.games_played or 0}\n"
+                        f"Wins: {user.wins or 0}\n"
+                        f"XP: {user.xp or 0}\n"
+                        f"Coins: {user.coins or 0}\n"
+                        f"Streak: {user.streak or 0} days"
+                    )
+                else:
+                    # User not found in database
+                    await query.message.reply_text(
+                        "👤 Your Profile:\n\n"
+                        "You don't have a profile yet. Play a game to create one!"
+                    )
+            finally:
+                db.close()
+        
+        # Handle leaderboard button
+        elif query.data == 'leaderboard':
+            # Create database session
+            db = SessionLocal()
+            try:
+                # Get top 10 users by XP
+                top_users = db.query(User).order_by(User.xp.desc()).limit(10).all()
+                
+                if top_users:
+                    # Format leaderboard
+                    leaderboard_text = "🏆 Global Leaderboard:\n\n"
+                    for i, user in enumerate(top_users):
+                        leaderboard_text += f"{i+1}. {user.username or user.first_name}: {user.xp} XP\n"
+                    
+                    await query.message.reply_text(leaderboard_text)
+                else:
+                    # No users found
+                    await query.message.reply_text("🏆 Leaderboard is empty. Be the first to play!")
+            finally:
+                db.close()
+        
+        # Handle other buttons
         else:
-            await query.message.reply_text(f"The '{query.data}' feature is coming soon!")
+            # For any other button, provide a helpful response
+            await query.message.reply_text(
+                f"The '{query.data}' button was pressed.\n\n"
+                "Try using the Create Room or Join Room buttons to play Bingo!"
+            )
     except Exception as e:
         logger.error(f"Error handling button {query.data}: {str(e)}")
         await query.message.reply_text("❌ An error occurred. Please try again later.")
