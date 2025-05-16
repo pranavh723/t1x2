@@ -9,6 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters
 from telegram.error import BadRequest, TimedOut, NetworkError
 from dotenv import load_dotenv
+import asyncio
 
 # Add the project root directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1136,19 +1137,27 @@ def is_user_banned(user_id: int) -> bool:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         return user and user.banned
 
+# Move bot username logging into an async function
+async def log_bot_username():
+    username = (await application.bot.get_me()).username
+    logger.info("Bot username: @%s", username)
 
+# Call it during initialization
+async def main():
+    await log_bot_username()
 
-# Start the bot
-try:
-    logger.info("Starting bot...")
-    logger.info(f"Using token: {TELEGRAM_BOT_TOKEN}")
-    logger.info(f"Database URL: {DATABASE_URL}")
-    logger.info("Bot username: @%s", (await application.bot.get_me()).username)
-    
-    # Start polling
-    logger.info("Starting polling...")
-    await application.run_polling()
-    logger.info("Polling started successfully")
-except Exception as e:
-    logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
-    raise
+    # Start the bot
+    try:
+        logger.info("Starting bot...")
+        logger.info(f"Using token: {TELEGRAM_BOT_TOKEN}")
+        logger.info(f"Database URL: {DATABASE_URL}")
+        
+        # Start polling
+        logger.info("Starting polling...")
+        await application.run_polling()
+        logger.info("Polling started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
+        raise
+
+asyncio.run(main())
