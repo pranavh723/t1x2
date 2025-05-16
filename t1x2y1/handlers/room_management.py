@@ -5,10 +5,10 @@ import random
 import string
 import logging
 
-from db.models import Room, Game, User, RoomStatus, GameStatus, Player
-from db.database import SessionLocal
-from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-from utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern
+from t1x2y1.db.models import Room, Game, User, RoomStatus, GameStatus, Player
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from t1x2y1.utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern
 
 # Constants
 ROOM_SIZE_LIMIT = 5
@@ -41,7 +41,7 @@ def create_room(host_id: int, chat_id: int, room_type: str = 'public', max_playe
             room_type=room_type,
             max_players=max_players,
             auto_call=auto_call,
-            status='WAITING',
+            status=RoomStatus.WAITING,
             created_at=datetime.utcnow()
         )
         db.add(room)
@@ -114,40 +114,3 @@ def join_room(room_code: str, user_id: int) -> Optional[Room]:
     finally:
         db.close()
 
-def generate_bingo_card() -> List[List[int]]:
-    """Generate a random 5x5 bingo card"""
-    card = []
-    for i in range(5):
-        start = i * 15 + 1
-        end = (i + 1) * 15
-        column = random.sample(range(start, end + 1), 5)
-        card.append(column)
-    
-    # Transpose the card to have rows instead of columns
-    return [list(row) for row in zip(*card)]
-
-def validate_bingo_card(card: List[List[int]]) -> bool:
-    """Validate a bingo card"""
-    if len(card) != 5:
-        return False
-        
-    for row in card:
-        if len(row) != 5:
-            return False
-            
-    # Check if all numbers are unique
-    all_numbers = [num for row in card for num in row]
-    return len(all_numbers) == len(set(all_numbers))
-
-def create_card_keyboard(card: List[List[int]]):
-    """Create an inline keyboard for a bingo card"""
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-    
-    keyboard = []
-    for row in card:
-        keyboard_row = []
-        for num in row:
-            keyboard_row.append(InlineKeyboardButton(str(num), callback_data=f"mark_{num}"))
-        keyboard.append(keyboard_row)
-    
-    return InlineKeyboardMarkup(keyboard)

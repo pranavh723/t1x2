@@ -37,11 +37,8 @@ def main():
             try:
                 from t1x2y1.web_server import start_web_server
             except ImportError:
-                try:
-                    from web_server import start_web_server
-                except ImportError:
-                    logger.error("Could not import web_server module")
-                    raise
+                logger.error("Could not import web_server module")
+                raise
             
             # Start the web server
             httpd = start_web_server()
@@ -55,11 +52,8 @@ def main():
             try:
                 from t1x2y1.db.database import init_db
             except ImportError:
-                try:
-                    from db.database import init_db
-                except ImportError:
-                    logger.error("Could not import database module")
-                    raise
+                logger.error("Could not import database module")
+                raise
             
             logger.info("Initializing database...")
             success = init_db()

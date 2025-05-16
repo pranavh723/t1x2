@@ -17,11 +17,11 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Now import from the project modules
-from t1x2y1.config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
+from t1x2y1.config import OWNER_ID, ENV, TELEGRAM_BOT_TOKEN, DATABASE_URL
 from t1x2y1.utils.rate_limit import rate_limited
 from t1x2y1.db.database import engine, SessionLocal, Base
-
-from t1x2y1.db.models import User, Room, Game, Card, Maintenance
+from t1x2y1.db.models import User, Room, Game, Card, Maintenance, Player
+from t1x2y1.utils.constants import RoomStatus, GameStatus
 from t1x2y1.utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern, generate_random_number
 from ratelimit import sleep_and_retry, limits
 from sqlalchemy.orm import Session
@@ -235,7 +235,7 @@ async def create_room_command(update: Update, context: ContextTypes.DEFAULT_TYPE
                 room_code=room_code,
                 host_id=user_id,
                 chat_id=chat_id,
-                status='WAITING',
+                status=RoomStatus.ACTIVE,
                 created_at=datetime.now()
             )
             db.add(new_room)
@@ -278,7 +278,7 @@ async def join_room_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             # Find room with this code
             room = db.query(Room).filter(
                 Room.room_code == room_code,
-                Room.status == 'WAITING'
+                Room.status == RoomStatus.ACTIVE
             ).first()
             
             if not room:
@@ -998,7 +998,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     room = db.query(Room).filter(Room.id == player.room_id).first()
                     if room and room.host_id == user_id:
                         # If host leaves, end the room
-                        room.status = 'CANCELLED'
+                        room.status = RoomStatus.CANCELLED
                         db.commit()
                         
                         # Notify other players if possible

@@ -11,16 +11,9 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Import with fallback paths for both local development and deployment
-try:
-    from t1x2y1.db.models import Maintenance
-    from t1x2y1.db.database import SessionLocal
-    from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-except ImportError:
-    try:
-        from db.models import Maintenance
-        from db.database import SessionLocal
-        from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-    except ImportError:
+from t1x2y1.db.models import Maintenance
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
         print("Error: Could not import database modules")
         MAINTENANCE_MODE = False
         MAINTENANCE_MESSAGE = "Bot is currently under maintenance. Please try again later."

@@ -9,15 +9,8 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Import with fallback paths for both local development and deployment
-try:
-    from t1x2y1.db.models import User
-    from t1x2y1.db.database import SessionLocal
-except ImportError:
-    try:
-        from db.models import User
-        from db.database import SessionLocal
-    except ImportError:
-        print("Error: Could not import database modules")
+from t1x2y1.db.models import User
+from t1x2y1.db.database import SessionLocal
 
 # Set up logger
 user_logger = logging.getLogger(__name__)

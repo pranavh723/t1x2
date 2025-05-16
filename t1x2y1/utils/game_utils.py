@@ -1,5 +1,6 @@
 import random
 import logging
+import asyncio
 from typing import List, Dict, Tuple, Optional, Union
 from datetime import datetime
 from telegram import InlineKeyboardButton
@@ -75,19 +76,6 @@ def generate_random_number(excluded: List[int] = None) -> int:
         return None
     
     return random.choice(available)
-
-def validate_card(card: List[List[int]]) -> bool:
-    """Validate a bingo card"""
-    if len(card) != 5:
-        return False
-        
-    for row in card:
-        if len(row) != 5:
-            return False
-            
-    # Check if all numbers are unique
-    all_numbers = [num for row in card for num in row]
-    return len(all_numbers) == len(set(all_numbers))
 
 class BingoGame:
     def __init__(self, room_code: str, players: List[int]):
@@ -231,14 +219,8 @@ def check_bingo(card: List[List[int]], marked: List[List[bool]]) -> bool:
             
         return False
     except Exception as e:
-        logger.error(f"Error checking bingo: {str(e)}")
+        game_logger.error(f"Error checking bingo: {str(e)}")
         return False
-        
-        card = self.cards[player_id]
-        marked = self.marked[player_id]
-        
-        return [[(num, marked[i][j]) for j, num in enumerate(row)]
-                for i, row in enumerate(card)]
 
 class GameManager:
     def __init__(self):

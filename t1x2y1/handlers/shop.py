@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import ContextTypes
-from db.models import User, Card
-from db.db import SessionLocal
+from t1x2y1.db.models import User, Card
+from t1x2y1.db.database import SessionLocal
 import logging
 from ratelimit import sleep_and_retry, limits
 from functools import wraps

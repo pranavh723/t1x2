@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from db.models import Room, RoomStatus
-from db.db import SessionLocal
+from t1x2y1.db.models import Room, RoomStatus
+from t1x2y1.db.database import SessionLocal
 import logging
 
 logger = logging.getLogger(__name__)

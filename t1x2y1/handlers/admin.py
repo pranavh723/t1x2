@@ -1,8 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
-from config import OWNER_ID, ADMIN_ID
-from db.db import SessionLocal
-from db.models import User, Room, Game, Maintenance
+from t1x2y1.config import OWNER_ID, ADMIN_ID
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.db.models import User, Room, Game, Maintenance
 import logging
 from datetime import datetime, timedelta
 from sqlalchemy import func

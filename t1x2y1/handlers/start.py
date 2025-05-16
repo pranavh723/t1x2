@@ -11,18 +11,10 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Import with fallback paths for both local development and deployment
-try:
-    from t1x2y1.db.models import User
-    from t1x2y1.db.database import SessionLocal
-    from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-    from t1x2y1.utils.user_utils import is_user_banned
-except ImportError:
-    try:
-        from db.models import User
-        from db.database import SessionLocal
-        from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-        from utils.user_utils import is_user_banned
-    except ImportError:
+from t1x2y1.db.models import User
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from t1x2y1.utils.user_utils import is_user_banned
         print("Error: Could not import required modules")
 
 # Set up logger

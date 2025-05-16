@@ -102,29 +102,3 @@ ERROR_MESSAGES = {
     'invalid_bingo_claim': "Bingo cannot be claimed in current state."
 }
 
-# Emojis
-EMOJIS = {
-    'error': '❌',
-    'info': 'ℹ️',
-    'success': '✅',
-    'warning': '⚠️',
-    'maintenance': '🛠️',
-    'network': '🌐',
-    'database': '💾',
-    'timeout': '⏳',
-    'group': '👥',
-    'private': '👤',
-    'room': '🎲',
-    'game': '🎮',
-    'card': '🔢',
-    'number': '🔢',
-    'bingo': '🎉',
-    'limit': '⏳',
-    'validation': '⚠️',
-    'state': '🔄',
-    'user': '👤',
-    'room': '🎲',
-    'game': '🎮',
-    'card': '🔢',
-    'number': '🔢'
-}

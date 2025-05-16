@@ -8,12 +8,12 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 
-from db.models import Room, Game, User, RoomStatus, GameStatus, Player
-from db.database import SessionLocal
-from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-from utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern
-from utils.user_utils import is_user_banned
-from handlers.room_management import create_room as create_room_func, join_room as join_room_func, generate_bingo_card, validate_bingo_card, create_card_keyboard
+from t1x2y1.db.models import Room, Game, User, RoomStatus, GameStatus, Player
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from t1x2y1.utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern
+from t1x2y1.utils.user_utils import is_user_banned
+from t1x2y1.handlers.room_management import create_room as create_room_func, join_room as join_room_func
 from utils.error_handler import error_handler
 from utils.exceptions import (
     InvalidUserError, InvalidChatTypeError, MaintenanceModeError, BannedUserError, 
@@ -313,7 +313,7 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await query.answer("Room not found!", show_alert=True)
             return
             
-        if room.status != RoomStatus.WAITING:
+        if room.status != RoomStatus.ACTIVE:
             await query.answer("Game has already started!", show_alert=True)
             return
             
@@ -343,7 +343,7 @@ async def start_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             db.add(new_card)
             game.cards.append(new_card)
             
-        room.status = RoomStatus.STARTED
+        room.status = RoomStatus.IN_PROGRESS
         db.commit()
         
         await query.answer()

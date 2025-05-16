@@ -5,9 +5,9 @@ from datetime import datetime
 import random
 import string
 
-from db.models import Room, Game, User, RoomStatus
-from db.db import SessionLocal
-from utils.constants import ROOM_SIZE_LIMIT
+from t1x2y1.db.models import Room, Game, User, RoomStatus
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.utils.constants import ROOM_SIZE_LIMIT
 
 def generate_room_code() -> str:
     """Generate a unique room code"""
