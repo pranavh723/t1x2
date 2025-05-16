@@ -224,9 +224,12 @@ if __name__ == '__main__':
                 MAINTENANCE_MODE = maintenance.enabled
                 MAINTENANCE_MESSAGE = maintenance.message or MAINTENANCE_MESSAGE
         
+        # Add error handler to application before polling
+        application.add_error_handler(error_handler.handle_error)
+        
+        # Run the bot
         application.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            error_callback=error_handler
+            allowed_updates=Update.ALL_TYPES
         )
     except Exception as e:
         logger.error(f"Failed to start bot: {str(e)}", exc_info=True)

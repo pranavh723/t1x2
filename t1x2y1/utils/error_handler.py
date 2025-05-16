@@ -102,22 +102,31 @@ class ErrorHandler:
             
         return True
 
-    async def handle_error(self, update: Update, error: Exception) -> None:
-        """Handle and respond to errors"""
+    async def handle_error(self, update_obj, context) -> None:
+        """Handle and respond to errors
+        
+        This matches the expected signature for python-telegram-bot v20.7 error handlers
+        """
+        error = context.error
+        update = update_obj  # May be None if the error wasn't caused by an update
+        
         error_type = self._get_error_type(error)
         response = self.error_responses.get(error_type, self.error_responses['generic'])
         
+        error_logger.error(f"Error: {error_type} - {str(error)}")
+        
         try:
-            # Send error message
-            if update.callback_query:
-                await update.callback_query.answer(response[0], show_alert=True)
-            elif update.message:
-                await update.message.reply_text(
-                    f"{EMOJIS[response[1]]} {response[0]}"
-                )
+            # Send error message if we have an update object
+            if update:
+                if update.callback_query:
+                    await update.callback_query.answer(response[0], show_alert=True)
+                elif update.message:
+                    await update.message.reply_text(
+                        f"{EMOJIS[response[1]]} {response[0]}"
+                    )
         except TelegramError as e:
             # Log if we can't send error message
-            print(f"Error sending error message: {str(e)}")
+            error_logger.error(f"Error sending error message: {str(e)}")
         
         # Log the error
         self._log_error(error, error_type)
@@ -143,13 +152,13 @@ class ErrorHandler:
 
     def _log_error(self, error: Exception, error_type: str) -> None:
         """Log the error with type and details"""
-        print(f"[ERROR] Type: {error_type}, Message: {str(error)}")
+        error_logger.error(f"Type: {error_type}, Message: {str(error)}")
         
         # Additional logging for specific error types
         if error_type == 'database':
-            print(f"Database error details: {error.__cause__}")
+            error_logger.error(f"Database error details: {error.__cause__}")
         elif error_type == 'network':
-            print(f"Network error details: {error.__cause__}")
+            error_logger.error(f"Network error details: {error.__cause__}")
 
 # Create singleton instance
 error_handler = ErrorHandler()
