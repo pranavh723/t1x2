@@ -13,7 +13,6 @@ from db.db import init_db
 from db.models import Maintenance
 from utils.user_utils import is_user_banned
 from utils.maintenance_utils import maintenance_check
-from utils.error_handler import error_handler
 
 # Load environment variables
 load_dotenv()
@@ -225,8 +224,23 @@ if __name__ == '__main__':
                 MAINTENANCE_MODE = maintenance.enabled
                 MAINTENANCE_MESSAGE = maintenance.message or MAINTENANCE_MESSAGE
         
+        # Define error handler function directly
+        async def error_handler(update, context):
+            """Handle errors in the telegram bot"""
+            error = context.error
+            logger.error(f"Exception while handling an update: {error}")
+            
+            try:
+                # Send error message if we have an update object
+                if update and update.effective_message:
+                    await update.effective_message.reply_text(
+                        f"❌ An error occurred: {str(error)}"
+                    )
+            except Exception as e:
+                logger.error(f"Error sending error message: {str(e)}")
+        
         # Add error handler to application before polling
-        application.add_error_handler(error_handler.handle_error)
+        application.add_error_handler(error_handler)
         
         # Run the bot
         application.run_polling(
