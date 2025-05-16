@@ -1,9 +1,29 @@
+import os
+import sys
+import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-from db.models import Maintenance
-from db.database import SessionLocal
-from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-import logging
+
+# Add the project root directory to the Python path for deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Import with fallback paths for both local development and deployment
+try:
+    from t1x2y1.db.models import Maintenance
+    from t1x2y1.db.database import SessionLocal
+    from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+except ImportError:
+    try:
+        from db.models import Maintenance
+        from db.database import SessionLocal
+        from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+    except ImportError:
+        print("Error: Could not import database modules")
+        MAINTENANCE_MODE = False
+        MAINTENANCE_MESSAGE = "Bot is currently under maintenance. Please try again later."
 
 # Set up logger
 maintenance_logger = logging.getLogger(__name__)

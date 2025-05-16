@@ -1,10 +1,29 @@
+import os
+import sys
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from db.models import User
-from db.database import SessionLocal
-from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
-from utils.user_utils import is_user_banned
-import logging
+
+# Add the project root directory to the Python path for deployment
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Import with fallback paths for both local development and deployment
+try:
+    from t1x2y1.db.models import User
+    from t1x2y1.db.database import SessionLocal
+    from t1x2y1.config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+    from t1x2y1.utils.user_utils import is_user_banned
+except ImportError:
+    try:
+        from db.models import User
+        from db.database import SessionLocal
+        from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+        from utils.user_utils import is_user_banned
+    except ImportError:
+        print("Error: Could not import required modules")
 
 # Set up logger
 start_logger = logging.getLogger(__name__)

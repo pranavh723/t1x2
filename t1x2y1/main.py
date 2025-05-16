@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import random
 import string
@@ -8,17 +9,25 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram.error import BadRequest, TimedOut, NetworkError
 from dotenv import load_dotenv
-from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
-from utils.rate_limit import rate_limited
-from db.database import engine, SessionLocal, Base
 
-from db.models import User, Room, Game, Card, Player, Maintenance
-from utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern, generate_random_number
+# Add the project root directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Now import from the project modules
+from t1x2y1.config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, TELEGRAM_BOT_TOKEN, DATABASE_URL
+from t1x2y1.utils.rate_limit import rate_limited
+from t1x2y1.db.database import engine, SessionLocal, Base
+
+from t1x2y1.db.models import User, Room, Game, Card, Maintenance
+from t1x2y1.utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern, generate_random_number
 from ratelimit import sleep_and_retry, limits
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from utils.user_utils import is_user_banned
-from utils.maintenance_utils import maintenance_check
+from t1x2y1.utils.user_utils import is_user_banned
+from t1x2y1.utils.maintenance_utils import maintenance_check
 
 # Load environment variables
 load_dotenv()

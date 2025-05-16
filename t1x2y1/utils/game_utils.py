@@ -7,6 +7,88 @@ from telegram import InlineKeyboardButton
 # Set up logging
 game_logger = logging.getLogger(__name__)
 
+# Standalone functions for bingo game
+def generate_bingo_card() -> List[List[int]]:
+    """Generate a 5x5 bingo card with unique numbers"""
+    card = []
+    for i in range(5):
+        start = i * 15 + 1
+        end = (i + 1) * 15
+        column = random.sample(range(start, end + 1), 5)
+        card.append(column)
+    
+    # Transpose the card to have rows instead of columns
+    return [list(row) for row in zip(*card)]
+
+def format_bingo_card(card: List[List[int]]) -> str:
+    """Format a bingo card for display"""
+    header = "B   I   N   G   O"
+    formatted = [header]
+    
+    for row in card:
+        row_str = " ".join(f"{num:2d}" for num in row)
+        formatted.append(row_str)
+    
+    return "\n".join(formatted)
+
+def create_card_keyboard(card: List[List[int]]):
+    """Create an inline keyboard for a bingo card"""
+    keyboard = []
+    for row in card:
+        keyboard_row = []
+        for num in row:
+            keyboard_row.append(InlineKeyboardButton(str(num), callback_data=f"mark_{num}"))
+        keyboard.append(keyboard_row)
+    
+    # Add bingo button at bottom
+    keyboard.append([InlineKeyboardButton("🎯 BINGO!", callback_data="call_bingo")])
+    
+    return keyboard
+
+def check_bingo_pattern(marked: List[List[bool]]) -> bool:
+    """Check if there is a winning pattern in the marked card"""
+    # Check rows
+    for row in marked:
+        if all(row):
+            return True
+    
+    # Check columns
+    for col in range(5):
+        if all(marked[row][col] for row in range(5)):
+            return True
+    
+    # Check diagonals
+    if all(marked[i][i] for i in range(5)):
+        return True
+    if all(marked[i][4-i] for i in range(5)):
+        return True
+    
+    return False
+
+def generate_random_number(excluded: List[int] = None) -> int:
+    """Generate a random number for bingo (1-75) excluding already called numbers"""
+    if excluded is None:
+        excluded = []
+    
+    available = [num for num in range(1, 76) if num not in excluded]
+    if not available:
+        return None
+    
+    return random.choice(available)
+
+def validate_card(card: List[List[int]]) -> bool:
+    """Validate a bingo card"""
+    if len(card) != 5:
+        return False
+        
+    for row in card:
+        if len(row) != 5:
+            return False
+            
+    # Check if all numbers are unique
+    all_numbers = [num for row in card for num in row]
+    return len(all_numbers) == len(set(all_numbers))
+
 class BingoGame:
     def __init__(self, room_code: str, players: List[int]):
         self.room_code = room_code
