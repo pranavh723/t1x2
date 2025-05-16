@@ -4,7 +4,7 @@ from config import OWNER_ID
 from db.db import SessionLocal
 from db.models import User, Room, Game, Maintenance
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import func
 from typing import Optional
 
@@ -42,63 +42,72 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
 
-    if query.data == "admin_maintenance":
-        await toggle_maintenance(query)
-    elif query.data == "admin_stats":
-        await show_stats(query)
-    elif query.data == "admin_ban":
-        await ban_user(query)
-    elif query.data == "admin_unban":
-        await unban_user(query)
+    try:
+        if query.data == "admin_maintenance":
+            await toggle_maintenance(query)
+        elif query.data == "admin_stats":
+            await show_stats(query)
+        elif query.data == "admin_ban":
+            await ban_user(query)
+        elif query.data == "admin_unban":
+            await unban_user(query)
+    except Exception as e:
+        logger.error(f"Error handling admin callback: {str(e)}")
+        await query.message.reply_text("An error occurred while processing your request.")
 
 async def toggle_maintenance(query: Update) -> None:
     """Toggle maintenance mode"""
-    with SessionLocal() as db:
-        maintenance = db.query(Maintenance).first()
-        if not maintenance:
-            maintenance = Maintenance()
-            db.add(maintenance)
-        maintenance.enabled = not maintenance.enabled
-        db.commit()
+    try:
+        with SessionLocal() as db:
+            maintenance = db.query(Maintenance).first()
+            if not maintenance:
+                maintenance = Maintenance()
+                db.add(maintenance)
+            maintenance.enabled = not maintenance.enabled
+            db.commit()
 
-    if maintenance.enabled:
-        await query.message.reply_text("Maintenance mode enabled.")
-    else:
-        await query.message.reply_text("Maintenance mode disabled.")
+        if maintenance.enabled:
+            await query.message.reply_text("Maintenance mode enabled.")
+        else:
+            await query.message.reply_text("Maintenance mode disabled.")
+    except Exception as e:
+        logger.error(f"Error toggling maintenance mode: {str(e)}")
+        await query.message.reply_text("Failed to toggle maintenance mode.")
 
 async def show_stats(query: Update) -> None:
     """Show bot statistics"""
-    with SessionLocal() as db:
-        user_count = db.query(User).count()
-        room_count = db.query(Room).count()
-        game_count = db.query(Game).count()
+    try:
+        with SessionLocal() as db:
+            user_count = db.query(User).count()
+            room_count = db.query(Room).count()
+            game_count = db.query(Game).count()
 
-    stats = f"""
+        stats = f"""
 Bot Statistics:
 Users: {user_count}
 Rooms: {room_count}
 Games: {game_count}
 """
-    await query.message.reply_text(stats)
+        await query.message.reply_text(stats)
+    except Exception as e:
+        logger.error(f"Error fetching stats: {str(e)}")
+        await query.message.reply_text("Failed to fetch statistics.")
 
 async def ban_user(query: Update) -> None:
     """Ban a user"""
-    await query.message.reply_text("Please provide the user ID to ban.")
+    try:
+        await query.message.reply_text("Please provide the user ID to ban.")
+    except Exception as e:
+        logger.error(f"Error in ban_user: {str(e)}")
+        await query.message.reply_text("An error occurred.")
 
 async def unban_user(query: Update) -> None:
     """Unban a user"""
-    await query.message.reply_text("Please provide the user ID to unban.")
-
-async def show_bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show detailed bot statistics"""
-    with SessionLocal() as db:
-        # User stats
-        total_users = db.query(User).count()
-        active_users = db.query(User).filter(
-            User.last_seen >= datetime.now() - timedelta(days=1)
-        ).count()
-        
-        # Game stats
+    try:
+        await query.message.reply_text("Please provide the user ID to unban.")
+    except Exception as e:
+        logger.error(f"Error in unban_user: {str(e)}")
+        await query.message.reply_text("An error occurred.")
         total_games = db.query(Game).count()
         completed_games = db.query(Game).filter(Game.winner_id.isnot(None)).count()
         
