@@ -10,7 +10,7 @@ from handlers.social import show_social
 from handlers.achievements import show_achievements
 from handlers.events import show_events
 from handlers.analytics import show_analytics
-from handlers.admin import create_admin_handler, create_admin_callback_handler, admin_menu
+from handlers.admin import create_admin_handler, create_admin_callback_handler
 from db.db import init_db
 import logging
 
