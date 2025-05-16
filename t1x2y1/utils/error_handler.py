@@ -2,11 +2,43 @@ from typing import Dict, Tuple
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import TelegramError, NetworkError, BadRequest, TimedOut
-from utils.constants import ERROR_MESSAGES, EMOJIS
 from ratelimit import sleep_and_retry, limits
 from functools import wraps
 import time
 import logging
+
+# Define error messages and emojis
+ERROR_MESSAGES = {
+    "generic": "An error occurred. Please try again later.",
+    "maintenance": "Bot is currently under maintenance. Please try again later.",
+    "banned": "You have been banned from using this bot.",
+    "rate_limit": "You are sending too many requests. Please slow down.",
+    "invalid_command": "Invalid command. Please try again.",
+    "invalid_input": "Invalid input. Please try again.",
+    "room_not_found": "Room not found. Please check the room code and try again.",
+    "room_full": "This room is full. Please try another room or create your own.",
+    "already_in_room": "You are already in a room. Please leave your current room first.",
+    "not_in_room": "You are not in a room. Please join a room first.",
+    "game_in_progress": "Game is already in progress. Please wait for it to finish.",
+    "not_enough_players": "Not enough players to start the game. Please wait for more players to join."
+}
+
+EMOJIS = {
+    "error": "❌",
+    "success": "✅",
+    "warning": "⚠️",
+    "info": "ℹ️",
+    "game": "🎮",
+    "bingo": "🎯",
+    "card": "🎫",
+    "room": "🏠",
+    "player": "👤",
+    "time": "⏱️",
+    "coin": "🪙",
+    "xp": "⭐",
+    "theme": "🎨",
+    "streak": "🔥"
+}
 
 # Set up logger
 error_logger = logging.getLogger(__name__)

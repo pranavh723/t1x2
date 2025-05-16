@@ -8,9 +8,10 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 
-from db.models import Room, Game, User, RoomStatus, GameStatus
-from db.db import SessionLocal
-from utils.constants import ROOM_SIZE_LIMIT, MAINTENANCE_MODE, MAINTENANCE_MESSAGE, EMOJIS, MAX_ROOMS_PER_USER, MAX_ROOMS_PER_CHAT
+from db.models import Room, Game, User, RoomStatus, GameStatus, Player
+from db.database import SessionLocal
+from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
+from utils.game_utils import generate_bingo_card, format_bingo_card, create_card_keyboard, check_bingo_pattern
 from utils.user_utils import is_user_banned
 from handlers.room_management import create_room as create_room_func, join_room as join_room_func, generate_bingo_card, validate_bingo_card, create_card_keyboard
 from utils.error_handler import error_handler
@@ -109,8 +110,9 @@ async def create_room(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         room = create_room_func(
             host_id=user_id,
             chat_id=chat_id,
-            is_private=False,
-            max_players=ROOM_SIZE_LIMIT
+            room_type='public',
+            max_players=5,
+            auto_call=True
         )
         
         if not room:

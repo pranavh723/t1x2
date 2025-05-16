@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from db.models import User
-from db.db import SessionLocal
+from db.database import SessionLocal
 from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 from utils.user_utils import is_user_banned
 import logging

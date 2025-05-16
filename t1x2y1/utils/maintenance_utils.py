@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from db.models import Maintenance
-from db.db import SessionLocal
+from db.database import SessionLocal
 from config import MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 import logging
 

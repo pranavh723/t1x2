@@ -1,5 +1,5 @@
 from db.models import User
-from db.db import SessionLocal
+from db.database import SessionLocal
 import logging
 
 # Set up logger
