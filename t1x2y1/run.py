@@ -49,16 +49,20 @@ def main():
         
         # Initialize the database
         try:
-            try:
-                from t1x2y1.db.database import init_db
-            except ImportError:
-                logger.error("Could not import database module")
-                raise
-            
+            from t1x2y1.db.database import init_db, get_db
             logger.info("Initializing database...")
-            success = init_db()
-            if not success:
-                logger.warning("Database initialization had issues, but continuing...")
+            
+            # Initialize tables
+            if not init_db():
+                logger.warning("Database initialization had issues")
+            
+            # Test connection
+            try:
+                db = get_db()
+                db.execute("SELECT 1")
+                logger.info("Database connection test successful")
+            except Exception as e:
+                logger.error(f"Database connection test failed: {str(e)}")
         except Exception as e:
             logger.error(f"Error initializing database: {str(e)}")
             # Continue even if database initialization fails
