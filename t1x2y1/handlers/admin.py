@@ -80,14 +80,6 @@ def unban_user(query: Update) -> None:
     """Unban a user"""
     query.message.reply_text("Please provide the user ID to unban.")
 
-def create_admin_handler():
-    """Create admin command handlers"""
-    return CommandHandler("admin", admin_menu)
-
-def create_admin_callback_handler():
-    """Create callback query handler for admin menu"""
-    return CallbackQueryHandler(handle_admin_callback, pattern="^admin_")
-
 async def show_bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show detailed bot statistics"""
     with SessionLocal() as db:
