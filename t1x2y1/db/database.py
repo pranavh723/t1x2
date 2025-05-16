@@ -7,9 +7,9 @@ from sqlalchemy.orm import sessionmaker
 
 # Database configuration
 def get_database_url():
-    """Get database URL with Render-specific path handling"""
-    default_url = 'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bingo_bot.db')
-    return os.getenv('DATABASE_URL', default_url)
+    """Always use local SQLite database"""
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bingo_bot.db')
+    return f'sqlite:///{db_path}'
 
 # Set up logging
 logger = logging.getLogger(__name__)
