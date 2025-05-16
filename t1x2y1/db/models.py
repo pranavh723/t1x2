@@ -25,6 +25,16 @@ class GameStatus(str, PythonEnum):
 RoomStatusEnum = SQLAlchemyEnum(RoomStatus)
 GameStatusEnum = SQLAlchemyEnum(GameStatus)
 
+class Maintenance(Base):
+    __tablename__ = "maintenance"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True)
+    enabled = Column(Boolean, default=False)
+    message = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 # User model
 class User(Base):
     __tablename__ = "users"
