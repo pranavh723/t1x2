@@ -10,6 +10,7 @@ import logging
 import importlib
 import threading
 import time
+from t1x2y1.config import TELEGRAM_BOT_TOKEN, DATABASE_URL
 
 # Configure logging
 logging.basicConfig(
@@ -22,6 +23,8 @@ def main():
     """Main entry point for the bot"""
     try:
         logger.info("Starting Bingo Bot initialization...")
+        logger.info(f"Using token: {TELEGRAM_BOT_TOKEN}")
+        logger.info(f"Database URL: {DATABASE_URL}")
         
         # Add the project root to the Python path
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -74,6 +77,7 @@ def main():
                 try:
                     import t1x2y1.main
                     logger.info("Bot started successfully")
+                    logger.info("Listening for updates...")
                 except ImportError:
                     try:
                         import main
