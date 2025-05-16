@@ -1130,40 +1130,16 @@ def is_user_banned(user_id: int) -> bool:
 
 
 # Start the bot
-if __name__ == '__main__':
-    try:
-        logger.info("Starting Bingo Bot...")
-        logger.info(f"Using database: {DATABASE_URL}")
-        
-        # Initialize maintenance mode
-        with SessionLocal() as db:
-            maintenance = db.query(Maintenance).first()
-            if maintenance:
-                MAINTENANCE_MODE = maintenance.enabled
-                MAINTENANCE_MESSAGE = maintenance.message or MAINTENANCE_MESSAGE
-        
-        # Define error handler function directly
-        async def error_handler(update, context):
-            """Handle errors in the telegram bot"""
-            error = context.error
-            logger.error(f"Exception while handling an update: {error}")
-            
-            try:
-                # Send error message if we have an update object
-                if update and update.effective_message:
-                    await update.effective_message.reply_text(
-                        f"❌ An error occurred: {str(error)}"
-                    )
-            except Exception as e:
-                logger.error(f"Error sending error message: {str(e)}")
-        
-        # Add error handler to application before polling
-        application.add_error_handler(error_handler)
-        
-        # Run the bot
-        application.run_polling(
-            allowed_updates=Update.ALL_TYPES
-        )
-    except Exception as e:
-        logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
-        raise
+try:
+    logger.info("Starting bot...")
+    logger.info(f"Using token: {TELEGRAM_BOT_TOKEN}")
+    logger.info(f"Database URL: {DATABASE_URL}")
+    logger.info("Bot username: @%s", (await application.bot.get_me()).username)
+    
+    # Start polling
+    logger.info("Starting polling...")
+    await application.run_polling()
+    logger.info("Polling started successfully")
+except Exception as e:
+    logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
+    raise

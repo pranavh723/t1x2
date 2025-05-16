@@ -27,21 +27,36 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Handle /start command - Main entry point for the bot"""
     try:
         start_logger.info(f"Start command received from user {update.effective_user.id}")
+        
+        if not update.message:
+            start_logger.error("No message in update object")
+            return
+            
         user = update.effective_user
+        start_logger.info(f"Processing user: {user.id} - {user.username}")
         
         # Create database session
-        db = SessionLocal()
+        try:
+            db = SessionLocal()
+            db.execute("SELECT 1")  # Test connection
+            start_logger.info("Database connection successful")
+        except Exception as e:
+            start_logger.error(f"Database connection failed: {str(e)}")
+            await update.message.reply_text("❌ Database error. Please try again later.")
+            return
+            
         try:
             # Check if user exists, if not create new user
             db_user = db.query(User).filter(User.telegram_id == user.id).first()
             if not db_user:
+                start_logger.info(f"Creating new user: {user.id}")
                 new_user = User(
                     telegram_id=user.id,
                     username=user.username,
                     first_name=user.first_name,
                     last_name=user.last_name,
                     xp=0,
-                    coins=100,  # Initial coins
+                    coins=100,
                     streak=0,
                     games_played=0,
                     wins=0,
@@ -55,11 +70,13 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         
         # Check maintenance mode
         if MAINTENANCE_MODE:
+            start_logger.info("Bot in maintenance mode")
             await update.message.reply_text(MAINTENANCE_MESSAGE)
             return
             
         # Check if user is banned
         if is_user_banned(user.id):
+            start_logger.warning(f"Banned user attempted access: {user.id}")
             await update.message.reply_text("❌ You are banned from using this bot.")
             return
             
