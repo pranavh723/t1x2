@@ -87,7 +87,7 @@ async def validate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         logger.info(f"Validated command from user {update.effective_user.id}")
         return True
     except Exception as e:
-        error_logger.error(f"Error in validate_command: {str(e)}", exc_info=True)
+        logger.error(f"Error in validate_command: {str(e)}", exc_info=True)
         await update.message.reply_text("❌ An error occurred. Please try again later.")
         return False
 
@@ -208,8 +208,6 @@ def is_user_banned(user_id: int) -> bool:
         return user and user.banned
 
 
-
-application.add_error_handler(error_handler)
 
 # Start the bot
 if __name__ == '__main__':

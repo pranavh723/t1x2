@@ -1,19 +1,16 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from dotenv import load_dotenv
-import os
 import logging
 from contextlib import contextmanager
-from models import Base
+
+# Import Base from the local models module
+from db.models import Base
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
-# Create engine
-DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///bingo_bot.db')
+# Create engine with SQLite database
+DATABASE_URL = 'sqlite:///bingo.db'
 engine = create_engine(DATABASE_URL, echo=False)
 
 # Create session maker
