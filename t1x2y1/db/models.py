@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, ForeignKey, Boolean, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, ForeignKey, Boolean, BigInteger, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Enum as SQLAlchemyEnum
@@ -58,6 +58,12 @@ class User(Base):
     last_seen = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationships
+    rooms = relationship("Room", secondary="room_players", back_populates="players")
+    games = relationship("Game", secondary="game_players", back_populates="players")
+    owned_rooms = relationship("Room", foreign_keys="Room.owner_id", back_populates="owner")
+    cards = relationship("Card", back_populates="user")
+
 # Room model
 class Room(Base):
     __tablename__ = 'rooms'
@@ -79,9 +85,13 @@ class Room(Base):
     
     # Association table for room players
     room_players = Table('room_players', Base.metadata,
-        Column('room_id', Integer, ForeignKey('rooms.id')),
-        Column('user_id', Integer, ForeignKey('users.id'))
+        Column('room_id', Integer, ForeignKey('rooms.id'), primary_key=True),
+        Column('user_id', Integer, ForeignKey('users.id'), primary_key=True)
     )
+    
+    # Relationship backrefs
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_rooms")
+    players = relationship("User", secondary=room_players, back_populates="rooms")
 
 # Game model
 class Game(Base):
@@ -97,7 +107,13 @@ class Game(Base):
     end_time = Column(DateTime)
     
     room = relationship("Room", back_populates="games")
-    players = relationship("User", secondary="game_players", back_populates="games")
+    # Association table for game players
+    game_players = Table('game_players', Base.metadata,
+        Column('game_id', Integer, ForeignKey('games.id'), primary_key=True),
+        Column('user_id', Integer, ForeignKey('users.id'), primary_key=True)
+    )
+    
+    players = relationship("User", secondary=game_players, back_populates="games")
     cards = relationship("Card", back_populates="game")
     numbers_drawn = Column(JSON, default=list)
     

@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from config import OWNER_ID, ENV, MAINTENANCE_MODE, MAINTENANCE_MESSAGE
 from utils.rate_limit import rate_limited
 from ratelimit import sleep_and_retry, limits
-from db.db import init_db, SessionLocal
+from sqlalchemy.orm import sessionmaker
+from db.db import init_db, engine
 from db.models import Maintenance
 
 # Load environment variables
@@ -37,10 +38,11 @@ logger = logging.getLogger(__name__)
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
-# Initialize database
+# Initialize database and session
 try:
     init_db()
-    logger.info("Database initialized successfully")
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    logger.info("Database and session initialized successfully")
 except Exception as e:
     logger.error(f"Database initialization error: {str(e)}")
     if ENV == 'production':
