@@ -58,8 +58,9 @@ def main():
             
             # Test connection
             try:
+                from sqlalchemy import text
                 db = get_db()
-                db.execute("SELECT 1")
+                db.execute(text("SELECT 1"))
                 logger.info("Database connection test successful")
             except Exception as e:
                 logger.error(f"Database connection test failed: {str(e)}")

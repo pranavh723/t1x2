@@ -7,6 +7,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Database configuration
+DATABASE_URL = "sqlite:///db/bingo_bot.db"
+
 # Hardcoded configuration values
 TELEGRAM_BOT_TOKEN = "7662693814:AAH48vJMmVqzyP0v3OmmwzqTyaMloNHFAec"
 OWNER_ID = 6985505204
