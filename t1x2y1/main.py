@@ -53,38 +53,57 @@ logger = logging.getLogger(__name__)
 if not TELEGRAM_BOT_TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
 
-# Initialize database
-Base.metadata.create_all(bind=engine)
-logger.info("Database initialized and schema updated")
-
-# Create database session to check and initialize required data
-db = SessionLocal()
+# Initialize database - create all tables first
 try:
+    # Explicitly create all tables before attempting any queries
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables created successfully")
+except Exception as e:
+    logger.error(f"Error creating database tables: {str(e)}")
+    raise
+
+# Now that tables exist, initialize required data
+try:
+    # Create database session
+    db = SessionLocal()
+    
     # Check if maintenance record exists, create if not
-    maintenance = db.query(Maintenance).first()
-    if not maintenance:
-        maintenance = Maintenance(enabled=False, message="Bot is currently under maintenance.")
-        db.add(maintenance)
-        db.commit()
-        logger.info("Created initial maintenance record")
+    try:
+        maintenance = db.query(Maintenance).first()
+        if not maintenance:
+            maintenance = Maintenance(enabled=False, message="Bot is currently under maintenance.")
+            db.add(maintenance)
+            db.commit()
+            logger.info("Created initial maintenance record")
+    except Exception as e:
+        logger.error(f"Error checking maintenance record: {str(e)}")
+        # Continue even if this fails
         
     # Check if admin user exists
     if OWNER_ID:
-        admin = db.query(User).filter(User.telegram_id == OWNER_ID).first()
-        if not admin:
-            admin = User(
-                telegram_id=OWNER_ID,
-                username="admin",
-                first_name="Admin",
-                xp=1000,
-                coins=9999,
-                theme="admin"
-            )
-            db.add(admin)
-            db.commit()
-            logger.info(f"Created admin user with ID {OWNER_ID}")
+        try:
+            admin = db.query(User).filter(User.telegram_id == OWNER_ID).first()
+            if not admin:
+                admin = User(
+                    telegram_id=OWNER_ID,
+                    username="admin",
+                    first_name="Admin",
+                    xp=1000,
+                    coins=9999,
+                    theme="admin"
+                )
+                db.add(admin)
+                db.commit()
+                logger.info(f"Created admin user with ID {OWNER_ID}")
+        except Exception as e:
+            logger.error(f"Error checking admin user: {str(e)}")
+            # Continue even if this fails
+except Exception as e:
+    logger.error(f"Error initializing database: {str(e)}")
+    # Continue even if initialization fails
 finally:
-    db.close()
+    if 'db' in locals():
+        db.close()
 
 # All models and utilities have been imported above
 

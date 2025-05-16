@@ -40,12 +40,28 @@ Base = declarative_base()
 def init_db():
     """Initialize database tables"""
     try:
-        # Create tables
+        # Import all models to ensure they're registered with Base
+        import sys
+        import importlib
+        
+        # Try to import models using both possible import paths
+        try:
+            from t1x2y1.db import models
+            logger.info("Successfully imported models from t1x2y1.db")
+        except ImportError:
+            try:
+                from db import models
+                logger.info("Successfully imported models from db")
+            except ImportError:
+                logger.error("Could not import models from any path")
+        
+        # Create all tables
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created successfully")
+        return True
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
-        raise
+        return False
 
 def get_db():
     """Get database session"""
