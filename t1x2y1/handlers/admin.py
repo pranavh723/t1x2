@@ -4,6 +4,8 @@ from config import OWNER_ID
 from db.db import SessionLocal
 from db.models import User, Room, Game, Maintenance
 import logging
+from datetime import datetime
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +206,3 @@ async def reset_user(update: Update, context: ContextTypes.DEFAULT_TYPE, args: l
             await update.message.reply_text(f"User {user_id} has been reset.")
     except ValueError:
         await update.message.reply_text("Invalid user ID.")
-
-# Create admin command handler
-def create_admin_handler():
-    return CommandHandler("admin", admin_command)
