@@ -1,16 +1,21 @@
 services:
   - type: web
-    name: telegram-bingo-bot
+    name: bingo-bot
+    plan: free
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    region: singapore  # Choose closest to your users
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: |
+      python run.py
     envVars:
-      - key: ENV
-        value: production
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: OWNER_ID
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: ENV
+        value: production
+    healthCheckPath: /healthz
     autoDeploy: true
