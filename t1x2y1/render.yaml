@@ -1,12 +1,12 @@
 services:
-  - type: web
-    name: bingo-bot
+  - type: worker
+    name: bingo-bot-worker
     plan: free
     env: python
     region: singapore
     workingDirectory: /t1x2y1
     buildCommand: pip install -r requirements.txt
-    startCommand: python run.py
+    command: python t1x2y1/run.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
