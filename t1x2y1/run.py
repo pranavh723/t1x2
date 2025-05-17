@@ -10,11 +10,16 @@ sys.path.insert(0, project_root)
 
 from t1x2y1.main import main
 
-async def run_bot():
+if __name__ == "__main__":
     try:
-        await main()
+        # Create new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the bot
+        loop.run_until_complete(main())
     except Exception as e:
         print(f"Error: {e}")
-
-if __name__ == "__main__":
-    asyncio.run(run_bot())
+    finally:
+        # Clean up
+        loop.close()
