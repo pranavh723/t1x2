@@ -1162,20 +1162,34 @@ async def log_bot_username():
 
 # Call it during initialization
 async def main():
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    
-    # Register command handlers
-    application.add_handler(CommandHandler("start", start_handler))
-    
+    application = None
     try:
+        application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        
+        # Register handlers
+        application.add_handler(CommandHandler("start", start_handler))
+        
         await application.initialize()
         await application.start()
-        await application.run_polling(
+        await application.updater.start_polling(
             drop_pending_updates=True,
             allowed_updates=Update.ALL_TYPES
         )
+        
+        # Keep the application running
+        while True:
+            await asyncio.sleep(1)
+            
+    except asyncio.CancelledError:
+        pass
     except Exception as e:
         print(f"Error: {e}")
     finally:
-        await application.stop()
-        await application.shutdown()
+        if application:
+            if application.updater:
+                await application.updater.stop()
+            await application.stop()
+            await application.shutdown()
+
+if __name__ == "__main__":
+    asyncio.run(main())
