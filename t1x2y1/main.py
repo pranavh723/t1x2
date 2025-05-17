@@ -1171,15 +1171,16 @@ async def main():
         
         await application.initialize()
         await application.start()
-        await application.updater.start_polling(
-            drop_pending_updates=True,
-            allowed_updates=Update.ALL_TYPES
-        )
         
-        # Keep the application running
-        while True:
-            await asyncio.sleep(1)
-            
+        # Start polling with proper cleanup handling
+        async with application:
+            await application.updater.start_polling(
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES
+            )
+            while True:
+                await asyncio.sleep(1)
+                
     except asyncio.CancelledError:
         pass
     except Exception as e:
