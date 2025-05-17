@@ -1186,4 +1186,17 @@ async def main():
         logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
         raise
 
-asyncio.run(main())
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(main())
+        else:
+            loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        logger.error(f"Application error: {e}")
+    finally:
+        if not loop.is_closed():
+            loop.close()
