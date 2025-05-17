@@ -6,7 +6,7 @@ import string
 from datetime import datetime
 from functools import wraps
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters, MessageHandler
 from telegram.error import BadRequest, TimedOut, NetworkError
 from dotenv import load_dotenv
 import asyncio
@@ -194,9 +194,14 @@ class RateLimitExceeded(Exception):
 
 # Register command handlers
 logger.info("Registering command handlers...")
+application.add_handler(CommandHandler("start", start_handler, filters=filters.ChatType.PRIVATE))
+logger.info(f"Start handler registered: {application.handlers}")
+
+# Verify all handlers
+for handler in application.handlers[0]:
+    logger.info(f"Registered handler: {handler.callback.__name__} for commands: {getattr(handler, 'commands', [])}")
 
 # Add essential command handlers directly
-application.add_handler(CommandHandler("start", start_handler, filters=filters.ChatType.PRIVATE))
 application.add_handler(CommandHandler("help", start_handler, filters=filters.ChatType.PRIVATE)) # Replaced help_handler with start_handler
 
 # Implement fully functional command handlers
@@ -1154,8 +1159,16 @@ async def main():
         
         # Start polling
         logger.info("Starting polling...")
-        await application.run_polling()
+        await application.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=Update.ALL_TYPES,
+            timeout=30
+        )
         logger.info("Polling started successfully")
+        
+        # Debug: Log received updates
+        application.add_handler(MessageHandler(filters.ALL, lambda u,c: logger.info(f"Received update: {u.update_id}")))
+        logger.info("Update listener registered")
     except Exception as e:
         logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
         raise

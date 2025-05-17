@@ -24,20 +24,24 @@ except ImportError as e:
     raise
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command with response verification"""
+    """Handle /start command with detailed debugging"""
     try:
+        start_logger.info("--- Start command triggered ---")
+        start_logger.info(f"Update contents: {update.to_dict()}")
+        
         if not update.message:
             start_logger.error("No message in update object")
             return
             
         user = update.effective_user
-        start_logger.info(f"Processing start from user {user.id}")
+        start_logger.info(f"Processing start from user {user.id} ({user.username})")
         
         # Test response capability
         try:
             await update.message.reply_text(" Bot is initializing...")
+            start_logger.info("Test message sent successfully")
         except Exception as e:
-            start_logger.error(f"Failed to send test message: {e}")
+            start_logger.error(f"Failed to send test message: {e}", exc_info=True)
             return
             
         if update.effective_chat.type != "private":
@@ -147,5 +151,5 @@ def create_main_menu_keyboard():
         ]
         return InlineKeyboardMarkup(keyboard)
     except Exception as e:
-        logger.error(f"Error in create_main_menu_keyboard: {str(e)}")
+        start_logger.error(f"Error in create_main_menu_keyboard: {str(e)}")
         return None
