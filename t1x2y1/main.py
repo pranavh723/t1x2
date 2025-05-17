@@ -1198,16 +1198,29 @@ async def main():
         
         # Start polling
         logger.info("Starting polling...")
-        await application.run_polling(
-            drop_pending_updates=True,
-            allowed_updates=Update.ALL_TYPES,
-            timeout=30
-        )
-        logger.info("Polling started successfully")
-        
-        # Debug: Log received updates
-        application.add_handler(MessageHandler(filters.ALL, lambda u,c: logger.info(f"Received update: {u.update_id}")))
-        logger.info("Update listener registered")
-    except Exception as e:
-        logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
-        raise
+        # Create lock file to prevent multiple instances
+        lock_file = open('bot.lock', 'w')
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            logger.info("Acquired instance lock")
+            
+            await application.run_polling(
+                drop_pending_updates=True,
+                allowed_updates=Update.ALL_TYPES,
+                timeout=30
+            )
+            logger.info("Polling started successfully")
+            
+            # Debug: Log received updates
+            application.add_handler(MessageHandler(filters.ALL, lambda u,c: logger.info(f"Received update: {u.update_id}")))
+            logger.info("Update listener registered")
+        except IOError:
+            logger.error("Another bot instance is already running")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
+            raise
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
+            os.remove('bot.lock')
