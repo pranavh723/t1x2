@@ -1162,25 +1162,20 @@ async def log_bot_username():
 
 # Call it during initialization
 async def main():
-    await log_bot_username()
-
-    # Start the bot
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    
+    # Register command handlers
+    application.add_handler(CommandHandler("start", start_handler))
+    
     try:
-        logger.info("Starting bot...")
-        logger.info(f"Using token: {TELEGRAM_BOT_TOKEN}")
-        logger.info(f"Database URL: {DATABASE_URL}")
-        
-        # Start polling
-        logger.info("Starting polling...")
+        await application.initialize()
+        await application.start()
         await application.run_polling(
             drop_pending_updates=True,
             allowed_updates=Update.ALL_TYPES
         )
-        logger.info("Polling started successfully")
-        
-        # Debug: Log received updates
-        application.add_handler(MessageHandler(filters.ALL, lambda u,c: logger.info(f"Received update: {u.update_id}")))
-        logger.info("Update listener registered")
     except Exception as e:
-        logger.error(f"Failed to start bot: {str(e)}", exc_info=True)
-        raise
+        print(f"Error: {e}")
+    finally:
+        await application.stop()
+        await application.shutdown()
