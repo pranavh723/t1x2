@@ -1,15 +1,28 @@
+#!/usr/bin/env python3
 import os
 import sys
 import logging
-import random
-import string
-from datetime import datetime
-from functools import wraps
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters, MessageHandler
+import asyncio
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters,
+    MessageHandler
+)
 from telegram.error import BadRequest, TimedOut, NetworkError
 from dotenv import load_dotenv
-import asyncio
+
+# Add project root to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+sys.path.insert(0, project_root)
+
+# Local imports
+from t1x2y1.config import TELEGRAM_BOT_TOKEN, DATABASE_URL
+from t1x2y1.db.database import init_db, get_db
 
 # Add the project root directory to the Python path
 current_dir = os.path.dirname(os.path.abspath(__file__))
