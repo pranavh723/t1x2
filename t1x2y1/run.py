@@ -1,5 +1,5 @@
 import asyncio
-from t1x2y1.main import main
+from .main import main
 
 async def run_bot():
     try:
