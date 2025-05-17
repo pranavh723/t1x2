@@ -5,11 +5,10 @@ services:
     env: python
     region: singapore
     buildCommand: |
-      cd t1x2y1
-      pip install -r requirements.txt
+      pip install -e . && \
+      pip install -r t1x2y1/requirements.txt
     startCommand: |
-      cd t1x2y1
-      python run.py
+      PYTHONPATH=/opt/render/project/src python -m t1x2y1.run
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
