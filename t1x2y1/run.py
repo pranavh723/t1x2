@@ -12,14 +12,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set up paths
-# Add both current directory and parent directory to path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
-
-# Import after path configuration
-from main import main
+# Ensure proper package imports
+from t1x2y1.main import main
 
 async def run_bot():
     try:
