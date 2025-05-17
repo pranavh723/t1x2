@@ -1,7 +1,8 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import ContextTypes
-from leaderboard.leaderboard import leaderboard
-from utils.ui import create_leaderboard_keyboard
+from t1x2y1.db.models import User
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.utils.ui import create_leaderboard_keyboard
 
 async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show the leaderboard interface"""

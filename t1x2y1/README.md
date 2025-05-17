@@ -22,21 +22,43 @@ A feature-rich Bingo game bot for Telegram with multiplayer support, AI opponent
 
 ## Deployment on Render
 
-1. Create a new Web Service on Render
+This bot is configured for easy deployment on Render.com.
+
+### One-Click Deployment
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+### Manual Deployment
+
+1. Fork this repository to your GitHub account
+2. Create a new Web Service on Render
    - Go to https://dashboard.render.com/
    - Click "New +"
    - Select "Web Service"
-
-2. Connect your GitHub repository
+3. Connect your GitHub repository
    - Click "Connect GitHub Repository"
    - Select your repository
    - Click "Connect"
+4. Use the following settings:
+   - **Environment**: Python
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python main.py`
+5. Add the following environment variables:
+   - `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from BotFather
+   - `OWNER_ID`: Your Telegram user ID
+   - `DATABASE_URL`: Database connection string (SQLite by default)
+   - `ENV`: Set to `production`
 
-3. Set environment variables:
-   - Go to "Environment Variables"
-   - Add these variables:
-     - `TELEGRAM_BOT_TOKEN`: Your bot token (7662693814:AAHZ7i7YKwpWvmpAWceo1e05pilDcYbpXEE)
-     - `OWNER_ID`: 69855055204
+### Configuration
+
+The bot uses the following environment variables:
+
+- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from BotFather
+- `OWNER_ID`: Your Telegram user ID (for admin commands)
+- `DATABASE_URL`: Database connection string
+- `ENV`: Environment (`development` or `production`)
+- `MAINTENANCE_MODE`: Set to `true` to enable maintenance mode
+     - `OWNER_ID`: Your Telegram user ID
      - `ENV`: production
 
 4. Database Setup:

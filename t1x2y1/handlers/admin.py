@@ -1,84 +1,171 @@
-from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler
-from main import OWNER_ID
-from db.db import SessionLocal
-from db.models import User
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram.ext import CommandHandler, ContextTypes, CallbackQueryHandler
+from t1x2y1.config import OWNER_ID, ADMIN_ID
+from t1x2y1.db.database import SessionLocal
+from t1x2y1.db.models import User, Room, Game, Maintenance
 import logging
-from logging_config import logger
+from datetime import datetime, timedelta
+from sqlalchemy import func
+from typing import Optional
 
-async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle admin commands"""
-    user_id = update.effective_user.id
-    
-    # Check if user is owner
-    if user_id != OWNER_ID:
-        await update.message.reply_text("You are not authorized to use this command.")
-        logger.warning(f"Unauthorized admin access attempt by user {user_id}")
-        return
-        
-    # Get command and arguments
-    command = context.args[0] if context.args else None
-    args = context.args[1:] if len(context.args) > 1 else []
-    
-    if not command:
-        await show_admin_menu(update, context)
-        return
-        
-    try:
-        if command == "stats":
-            await show_bot_stats(update, context)
-        elif command == "broadcast":
-            await broadcast_message(update, context, args)
-        elif command == "reset":
-            await reset_user(update, context, args)
-        elif command == "ban":
-            await ban_user(update, context, args)
-        elif command == "unban":
-            await unban_user(update, context, args)
-        elif command == "givexp":
-            await give_xp(update, context, args)
-        elif command == "givecoins":
-            await give_coins(update, context, args)
-        elif command == "backup":
-            await create_backup(update, context)
-        elif command == "maintenance":
-            await toggle_maintenance(update, context)
-        elif command == "logs":
-            await send_logs(update, context)
-        else:
-            await update.message.reply_text("Unknown admin command.")
-    except Exception as e:
-        logger.error(f"Admin command error: {str(e)}", exc_info=True)
-        await update.message.reply_text("An error occurred while processing the command.")
+logger = logging.getLogger(__name__)
 
-async def show_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Admin commands
+ADMIN_COMMANDS = {
+    'stats': '📊 Show bot statistics',
+    'maintenance': '🔧 Toggle maintenance mode',
+    'ban': '🔒 Ban a user',
+    'unban': '🔓 Unban a user',
+    'broadcast': '📢 Broadcast message',
+    'reset': '🔄 Reset user data'
+}
+
+async def create_admin_keyboard():
+    """Create admin menu keyboard"""
+    keyboard = []
+    for cmd, desc in ADMIN_COMMANDS.items():
+        keyboard.append([InlineKeyboardButton(desc, callback_data=f"admin_{cmd}")])
+    return InlineKeyboardMarkup(keyboard)
+
+def create_admin_handler():
+    """Create admin command handlers"""
+    return CommandHandler("admin", admin_menu)
+
+def create_admin_callback_handler():
+    """Create callback query handler for admin menu"""
+    return CallbackQueryHandler(handle_admin_callback, pattern="^admin_")
+
+async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show admin menu"""
-    keyboard = [
-        ["📊 Stats", "📢 Broadcast"],
-        ["🔄 Reset User", "🔒 Ban User"],
-        ["💰 Give XP", "💎 Give Coins"],
-        ["💾 Backup", "🔧 Maintenance"],
-        ["📄 Logs", "🔙 Back"]
-    ]
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        "Admin Menu:\n\n"
-        "Choose an option:",
-        reply_markup=reply_markup
-    )
+    user_id = update.effective_user.id
+    if user_id not in [OWNER_ID, ADMIN_ID]:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
 
-async def show_bot_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show detailed bot statistics"""
-    with SessionLocal() as db:
-        # User stats
-        total_users = db.query(User).count()
-        active_users = db.query(User).filter(
-            User.last_seen >= datetime.now() - timedelta(days=1)
-        ).count()
+    keyboard = await create_admin_keyboard()
+    await update.message.reply_text("Admin Menu:", reply_markup=keyboard)
+
+async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle admin menu callbacks"""
+    query = update.callback_query
+    if query.from_user.id not in [OWNER_ID, ADMIN_ID]:
+        await query.answer("Unauthorized!", show_alert=True)
+        return
+
+    await query.answer()
+
+    try:
+        action = query.data.split('_')[1]
+        if action == "maintenance":
+            await toggle_maintenance(query)
+        elif action == "stats":
+            await show_stats(query)
+        elif action == "ban":
+            await ban_user(query)
+        elif action == "unban":
+            await unban_user(query)
+        elif action == "broadcast":
+            await broadcast_message(query)
+        elif action == "reset":
+            await reset_user(query)
+    except Exception as e:
+        logger.error(f"Error handling admin callback: {str(e)}")
+        await query.message.reply_text("An error occurred while processing your request.")
+
+async def toggle_maintenance(query: Update) -> None:
+    """Toggle maintenance mode"""
+    try:
+        with SessionLocal() as db:
+            maintenance = db.query(Maintenance).first()
+            if not maintenance:
+                maintenance = Maintenance()
+                db.add(maintenance)
+            
+            maintenance.enabled = not maintenance.enabled
+            maintenance.updated_at = datetime.utcnow()
+            maintenance.message = "Bot maintenance is in progress. Please try again later."
+            db.commit()
+
+        if maintenance.enabled:
+            await query.message.reply_text("✅ Maintenance mode enabled.")
+        else:
+            await query.message.reply_text("✅ Maintenance mode disabled.")
+    except Exception as e:
+        logger.error(f"Error toggling maintenance mode: {str(e)}")
+        await query.message.reply_text("❌ Failed to toggle maintenance mode.")
+
+async def show_stats(query: Update) -> None:
+    """Show bot statistics"""
+    try:
+        with SessionLocal() as db:
+            user_count = db.query(User).count()
+            active_users = db.query(User).filter(User.last_seen > datetime.utcnow() - timedelta(days=7)).count()
+            room_count = db.query(Room).count()
+            game_count = db.query(Game).count()
+            
+            # Get top players by XP
+            top_players = db.query(User).order_by(User.xp.desc()).limit(5).all()
+            
+            stats = f"""
+📊 Bot Statistics:
+
+👥 Users:
+• Total: {user_count}
+• Active (7d): {active_users}
+
+🎮 Games:
+• Total Rooms: {room_count}
+• Total Games: {game_count}
+
+🏆 Top Players:
+"""
+            
+            for i, player in enumerate(top_players, 1):
+                stats += f"\n{i}. {player.first_name} ({player.xp} XP)"
+                
+        await query.message.reply_text(stats)
+    except Exception as e:
+        logger.error(f"Error fetching stats: {str(e)}")
+        await query.message.reply_text("❌ Failed to fetch statistics.")
+
+async def ban_user(query: Update) -> None:
+    """Ban a user"""
+    try:
+        await query.message.reply_text("Please provide the user ID to ban:")
         
-        # Game stats
+        # Wait for user input
+        response = await query.message.bot.wait_for(
+            "message",
+            timeout=30,
+            check=lambda m: m.from_user.id == query.from_user.id
+        )
+        
+        user_id = int(response.text)
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.telegram_id == user_id).first()
+            if not user:
+                await query.message.reply_text("❌ User not found!")
+                return
+                
+            user.banned = True
+            user.ban_reason = "Banned by admin"
+            db.commit()
+            
+        await query.message.reply_text(f"✅ User {user_id} has been banned.")
+    except ValueError:
+        await query.message.reply_text("❌ Invalid user ID.")
+    except Exception as e:
+        logger.error(f"Error in ban_user: {str(e)}")
+        await query.message.reply_text("❌ Failed to ban user.")
+        await query.message.reply_text("An error occurred.")
+
+async def unban_user(query: Update) -> None:
+    """Unban a user"""
+    try:
+        await query.message.reply_text("Please provide the user ID to unban.")
+    except Exception as e:
+        logger.error(f"Error in unban_user: {str(e)}")
+        await query.message.reply_text("An error occurred.")
         total_games = db.query(Game).count()
         completed_games = db.query(Game).filter(Game.winner_id.isnot(None)).count()
         
@@ -187,7 +274,3 @@ async def reset_user(update: Update, context: ContextTypes.DEFAULT_TYPE, args: l
             await update.message.reply_text(f"User {user_id} has been reset.")
     except ValueError:
         await update.message.reply_text("Invalid user ID.")
-
-# Create admin command handler
-def create_admin_handler():
-    return CommandHandler("admin", admin_command)
