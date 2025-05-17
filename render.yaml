@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: bingo-bot
+    plan: free
+    env: python
+    region: singapore
+    buildCommand: |
+      cd t1x2y1
+      pip install -r requirements.txt
+    startCommand: |
+      cd t1x2y1
+      python run.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OWNER_ID
+        sync: false
+    healthCheckPath: /healthz
+    autoDeploy: true
