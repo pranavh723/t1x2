@@ -1174,8 +1174,7 @@ async def main():
         logger.info("Starting polling...")
         await application.run_polling(
             drop_pending_updates=True,
-            allowed_updates=Update.ALL_TYPES,
-            timeout=30
+            allowed_updates=Update.ALL_TYPES
         )
         logger.info("Polling started successfully")
         
