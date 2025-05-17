@@ -2,7 +2,11 @@ services:
   - type: worker
     name: bingo-bot-worker
     env: python
-    command: cd /opt/render/project/src && python -m t1x2y1.run
+    command: |
+      if [ -f /tmp/t1x2y1_bot.lock ]; then
+        rm /tmp/t1x2y1_bot.lock
+      fi
+      cd /opt/render/project/src && python -m t1x2y1.run
     plan: free
     region: singapore
     workingDirectory: /t1x2y1
