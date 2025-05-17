@@ -4,10 +4,8 @@ services:
     plan: free
     env: python
     region: singapore  # Choose closest to your users
-    buildCommand: |
-      pip install -r requirements.txt
-    startCommand: |
-      python run.py
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
