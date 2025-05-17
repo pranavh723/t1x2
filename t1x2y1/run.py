@@ -11,13 +11,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Set up paths
-try:
-    # Production import (when package is installed)
-    from t1x2y1.main import main
-except ImportError:
-    # Development import (when running directly)
-    from main import main
+# Package import
+from t1x2y1.main import main
 
 async def run_bot():
     try:
